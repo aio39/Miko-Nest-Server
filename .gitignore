@@ -1,0 +1,8 @@
+dist
+temp
+node_modules
+.idea
+private-key.pem
+.env
+.dev.env
+.prod.env
