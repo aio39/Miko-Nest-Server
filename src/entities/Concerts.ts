@@ -74,4 +74,7 @@ export class Concerts {
 
   @Property({ length: 255 })
   streamKeyValue!: string;
+
+  @Property({ length: 255 })
+  ingestEndpoint!: string;
 }

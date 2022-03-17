@@ -29,7 +29,7 @@ import {
 } from '@aws-sdk/client-ivs';
 import { EntityRepository } from '@mikro-orm/core';
 import { InjectRepository } from '@mikro-orm/nestjs';
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Concerts } from 'entities/Concerts';
 import * as fs from 'fs';
@@ -76,17 +76,26 @@ export class IvsService {
       id: concertId + '',
     });
 
-    const command = new CreateChannelCommand(commandInput);
+    if (concert.channelArn) {
+      throw new HttpException('already exists', HttpStatus.CONFLICT);
+    }
+
+    const command = new CreateChannelCommand({
+      ...commandInput,
+      name: concertId + '',
+    });
     const { $metadata, channel, streamKey } = await this.client.send(command);
 
     if (channel && streamKey) {
-      const { arn: channelArn, playbackUrl } = channel;
+      const { arn: channelArn, playbackUrl, ingestEndpoint } = channel;
       const { arn: streamKeyArn, value } = streamKey;
       concert.channelArn = channelArn as string;
       concert.playbackUrl = playbackUrl as string;
       concert.streamKeyArn = streamKeyArn as string;
       concert.streamKeyValue = value as string;
+      concert.ingestEndpoint = ingestEndpoint as string;
       await this.concertsRepository.flush();
+
       return concert;
     }
   }

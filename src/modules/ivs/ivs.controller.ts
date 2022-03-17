@@ -85,7 +85,7 @@ export class IvsController {
     return this.ivsService.ListStreamSessionsCommand(input);
   }
 
-  @Get('/metadata')
+  @Post('/metadata')
   putMetadataCommand(@Body() input: PutMetadataCommandInput) {
     return this.ivsService.putMetadataCommand(input);
   }
