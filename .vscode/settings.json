@@ -19,5 +19,14 @@
     "titleBar.inactiveForeground": "#e7e7e799"
   },
   "peacock.remoteColor": "#dd0531",
-  "cSpell.words": ["miko", "Mikro", "WITHSCORES", "ZADD", "ZINCRBY", "ZRANGE"]
+  "cSpell.words": [
+    "HGETALL",
+    "HINCRBY",
+    "miko",
+    "Mikro",
+    "WITHSCORES",
+    "ZADD",
+    "ZINCRBY",
+    "ZRANGE"
+  ]
 }

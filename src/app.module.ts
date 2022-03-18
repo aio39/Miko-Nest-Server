@@ -5,6 +5,7 @@ import { redisProviders } from 'redis.provider';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { EventsModule } from './events/events.module';
+import { ConcertsModule } from './modules/concerts/concerts.module';
 import { IvsController } from './modules/ivs/ivs.controller';
 import { IvsModule } from './modules/ivs/ivs.module';
 import { IvsService } from './modules/ivs/ivs.service';
@@ -28,6 +29,7 @@ import { RoomModule } from './room/room.module';
       envFilePath: process.env.NODE_ENV === 'prod' ? '.prod.env' : '.dev.env',
     }),
     RoomModule,
+    ConcertsModule,
   ],
   controllers: [AppController, IvsController],
   providers: [AppService, IvsService, ...redisProviders],

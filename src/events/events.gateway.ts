@@ -7,10 +7,16 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { MAX_PER_ROOM } from 'const';
+import { Users } from 'entities/Users';
 import { RedisClientType } from 'redis';
 import { Server, Socket } from 'socket.io';
 import { RedisSocketServer } from 'types/RedisSocketServer';
 import { EventsService } from './events.service';
+
+type MySocket = Socket & {
+  data: { peerId: string; userData: Users; concertId: number; roomId: string };
+};
+
 @Injectable()
 @WebSocketGateway(3002, {
   transports: ['websocket'],
@@ -32,20 +38,20 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
     this.logger.log('Socket Server Init ✅');
   }
 
-  handleConnection(client: Socket, ...args: any[]) {
+  handleConnection(client: MySocket, ...args: any[]) {
     this.logger.log(`Client Connected : ${client.id}`);
     // client.leave(client.id); // 자기 자신방 나감
   }
 
   @SubscribeMessage('disconnecting')
-  handleDisconnecting(client: Socket, reason) {
+  handleDisconnecting(client: MySocket, reason) {
     //  Socket이 Room에서 제거되기전 Fire
     this.logger.log(`Client Disconnecting : ${client.id}`);
     console.log(client.rooms, 'reason', reason);
   }
 
   @SubscribeMessage('disconnect')
-  handleDisconnect(client: Socket, reason) {
+  handleDisconnect(client: MySocket, reason) {
     //  Socket이 Room에서 제거되기전 Fire
     this.logger.log(`Client Disconnect : ${client.id}`);
     console.log(client.rooms, 'reason', reason);
@@ -62,12 +68,13 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
   // be-broadcast-peer-id -> 알려준 PeerId를 전파함.
   @SubscribeMessage('fe-new-user-request-join')
   async handleNewUserRequestJoin(
-    client: Socket,
+    client: MySocket & { data: { peerId: string; abc: number } },
     [peerId, roomId, userData, concertId],
   ) {
     client.data['peerId'] = peerId;
     client.data['userData'] = userData;
     client.data['concertId'] = concertId;
+    client.data['roomId'] = roomId;
 
     // const curNumInRoom = this.server.adapter.rooms.get(roomId)?.size || 0;
     const curNumInRoom = (await this.server.adapter.sockets(new Set([roomId])))
@@ -90,13 +97,13 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
   }
 
   @SubscribeMessage('fe-answer-send-peer-id')
-  handleAnswerSendPeerId(client: Socket, [roomId, peerID, userData]) {
+  handleAnswerSendPeerId(client: MySocket, [roomId, peerID, userData]) {
     console.log('broadcastPeerId', roomId, peerID);
     client.to(roomId).emit('be-broadcast-peer-id', peerID, userData);
   }
 
   @SubscribeMessage('fe-user-left')
-  handleUserLeft(client: Socket, [peerId, roomId, concertId]) {
+  handleUserLeft(client: MySocket, [peerId, roomId, concertId]) {
     this.logger.log('fe-user-left', client.id);
     // Socket 처리
     client.leave(roomId);
@@ -107,9 +114,33 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
   }
 
   @SubscribeMessage('fe-send-message')
-  handleBroadcastNewMessage(client: Socket, [data, roomId]: [string, string]) {
+  handleBroadcastNewMessage(
+    client: MySocket,
+    [data, roomId]: [string, string],
+  ) {
     console.log(data);
     client.emit('be-broadcast-new-message', data);
     client.to(roomId).emit('be-broadcast-new-message', data);
   }
+
+  @SubscribeMessage('fe-send-quiz-choice')
+  handleFeSendQuizChoice(client: MySocket, [quizId, choice]: [string, string]) {
+    this.redisClient.HINCRBY('quiz' + quizId, choice, 1);
+  }
+
+  // For Streamer
+  @SubscribeMessage('fe-st-join-concert-room')
+  handleStJoinConcertRoom(client: MySocket, [concertId]: [string]) {
+    client.join(concertId);
+  }
+
+  @SubscribeMessage('fe-st-request-quiz-result')
+  handleStRequestQuizResult(client: MySocket, [quizId]: [string]) {
+    client.emit('be-send-to-st-quiz-data');
+  }
+
+  // @SubscribeMessage('fe-st-join-concert-room')
+  // handelStBroadcastQuizResult(client: MySocket, [concertId]: [string]) {
+  //   client.join(concertId);
+  // }
 }
