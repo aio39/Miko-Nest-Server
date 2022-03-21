@@ -51,7 +51,7 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
     private readonly coinHistoriesRepository: EntityRepository<CoinHistories>,
     @InjectRepository(Users)
     private readonly usersRepository: EntityRepository<Users>,
-  ) {}
+  ) { }
   @WebSocketServer()
   server!: RedisSocketServer;
 
@@ -223,4 +223,13 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
   // handleStRequestQuizResult(client: MySocket, [quizId]: [string]) {
   //   client.emit('be-send-to-st-quiz-data');
   // }
+
+
+  //rank
+  @SubscribeMessage('fe-rank')
+  async handleBroadcastNewRank(client: Socket, [roomId, concertId]) {
+    const rank = await this.redisClient.zRangeWithScores('concertRank' + concertId, 0, -1, { REV: true });
+    client.emit('be-broadcast-new-rank', rank);
+  }
+
 }

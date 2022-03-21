@@ -11,6 +11,7 @@ import { IvsController } from './modules/ivs/ivs.controller';
 import { IvsModule } from './modules/ivs/ivs.module';
 import { IvsService } from './modules/ivs/ivs.service';
 import { OrmModule } from './modules/orm/orm.module';
+import { RankModule } from './rank/rank.module';
 import { RoomModule } from './room/room.module';
 import { TasksModule } from './tasks/tasks.module';
 @Module({
@@ -34,6 +35,7 @@ import { TasksModule } from './tasks/tasks.module';
     ConcertsModule,
     ScheduleModule.forRoot(),
     TasksModule,
+    RankModule,
   ],
   controllers: [AppController, IvsController],
   providers: [AppService, IvsService, ...redisProviders],
