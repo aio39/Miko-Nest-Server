@@ -11,6 +11,7 @@ import { IvsModule } from './modules/ivs/ivs.module';
 import { IvsService } from './modules/ivs/ivs.service';
 import { OrmModule } from './modules/orm/orm.module';
 import { RoomModule } from './room/room.module';
+import { RankModule } from './rank/rank.module';
 @Module({
   imports: [
     OrmModule,
@@ -30,6 +31,7 @@ import { RoomModule } from './room/room.module';
     }),
     RoomModule,
     ConcertsModule,
+    RankModule,
   ],
   controllers: [AppController, IvsController],
   providers: [AppService, IvsService, ...redisProviders],
