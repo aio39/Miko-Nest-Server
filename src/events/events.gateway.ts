@@ -17,6 +17,7 @@ import { RedisSocketServer } from 'types/RedisSocketServer';
 import { ChatMessageInterface } from 'types/share/ChatMessageType';
 import { CoinHistories } from './../entities/CoinHistories';
 import {
+  rkConcertAddedScoreForM,
   rkConcertPublicRoom,
   rkQuiz,
 } from './../helper/createRedisKey/createRedisKey';
@@ -205,7 +206,11 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
     client: MySocket,
     [addedScore, updatedScore]: [number, number],
   ) {
-    // update score
+    const { concertId } = client.data;
+    // 랭킹 업데이트
+
+    // X분간 추가된 점수 업데이트
+    this.redisClient.HINCRBY(rkConcertAddedScoreForM(), concertId, addedScore);
   }
 
   // For Streamer

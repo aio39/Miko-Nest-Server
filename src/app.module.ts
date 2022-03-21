@@ -1,5 +1,6 @@
 import { MiddlewareConsumer, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { LoggerMiddleware } from 'middleware/morgan.middleware';
 import { redisProviders } from 'redis.provider';
 import { AppController } from './app.controller';
@@ -11,6 +12,7 @@ import { IvsModule } from './modules/ivs/ivs.module';
 import { IvsService } from './modules/ivs/ivs.service';
 import { OrmModule } from './modules/orm/orm.module';
 import { RoomModule } from './room/room.module';
+import { TasksModule } from './tasks/tasks.module';
 @Module({
   imports: [
     OrmModule,
@@ -30,6 +32,8 @@ import { RoomModule } from './room/room.module';
     }),
     RoomModule,
     ConcertsModule,
+    ScheduleModule.forRoot(),
+    TasksModule,
   ],
   controllers: [AppController, IvsController],
   providers: [AppService, IvsService, ...redisProviders],

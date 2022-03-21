@@ -6,5 +6,8 @@ export const rkConcertPublicRoom = (concertId: string) =>
 export const rkConcertScoreRanking = (concertId: string) =>
   `ScoreRanking${concertId}`;
 
+// 콘서트마다 N분 마다 추가된 점수
+export const rkConcertAddedScoreForM = () => `ConAddedScoreForM`;
+
 // 특정 Quiz(설문)의 각 항문에 대한 응답 횟수
 export const rkQuiz = (quizId: string) => `Quiz${quizId}`;
