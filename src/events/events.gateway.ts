@@ -229,7 +229,7 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
     client: MySocket,
     [addedScore, updatedScore]: [number, number],
   ) {
-    const { concertId } = client.data;
+    const { concertId, ticketId } = client.data;
     // 랭킹 업데이트
     const redisUpdatedScore = await this.redisClient.ZINCRBY(
       rkConcertScoreRanking(concertId),
@@ -246,14 +246,13 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
       //   -updatedScore,
       //   client.data.peerId,
       // );
-    } else {
-      // X분간 추가된 점수 업데이트
-      this.redisClient.HINCRBY(
-        rkConcertAddedScoreForM(),
-        concertId,
-        addedScore,
-      );
     }
+    // X분간 추가된 점수 업데이트
+    this.redisClient.HINCRBY(
+      rkConcertAddedScoreForM(),
+      concertId + '/' + ticketId,
+      addedScore,
+    );
   }
 
   // For Streamer
