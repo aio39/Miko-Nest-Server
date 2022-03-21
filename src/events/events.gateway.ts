@@ -8,7 +8,7 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { MAX_PER_ROOM } from 'const';
+import { MAX_PER_ROOM, RANK_RETURN_NUM } from 'const';
 import { Chats } from 'entities/Chats';
 import { Users } from 'entities/Users';
 import { RedisClientType } from 'redis';
@@ -19,6 +19,7 @@ import { CoinHistories } from './../entities/CoinHistories';
 import {
   rkConcertAddedScoreForM,
   rkConcertPublicRoom,
+  rkConcertScoreRanking,
   rkQuiz,
 } from './../helper/createRedisKey/createRedisKey';
 import { EventsService } from './events.service';
@@ -51,7 +52,7 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
     private readonly coinHistoriesRepository: EntityRepository<CoinHistories>,
     @InjectRepository(Users)
     private readonly usersRepository: EntityRepository<Users>,
-  ) { }
+  ) {}
   @WebSocketServer()
   server!: RedisSocketServer;
 
@@ -102,7 +103,7 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
     client.data['ticketId'] = ticketId;
     client.data['roomId'] = roomId;
     //  콘서트 방에 입장
-    if (concertId) client.join(roomId);
+    if (concertId) client.join(concertId);
 
     // const curNumInRoom = this.server.adapter.rooms.get(roomId)?.size || 0;
     const curNumInRoom = (await this.server.adapter.sockets(new Set([roomId])))
@@ -116,6 +117,15 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
         .to(roomId)
         .emit('be-new-user-come', peerId, roomId, userData, client.id);
       this.redisClient.ZINCRBY(rkConcertPublicRoom(concertId), 1, roomId);
+
+      // 기존 랭킹 점수 , 처음이면 0
+      const userScore = await this.redisClient.ZINCRBY(
+        rkConcertScoreRanking(concertId),
+        0,
+        client.data.peerId,
+      );
+      console.log('기존 랭킹 점수', userScore);
+      if (userScore) client.emit('be-send-user-score', userScore);
     } else {
       // 입장 실패후, redis상의 현 방의 인원수를 Max 숫자로 변경해줌.
       //  이후 Client측에서 새로운 방 번호를 얻어옴.
@@ -201,16 +211,49 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
     this.redisClient.HINCRBY(rkQuiz(quizId), choice, 1);
   }
 
+  // Rank System
+  @SubscribeMessage('fe-rank')
+  async handleBroadcastNewRank(client: Socket, [roomId, concertId]) {
+    // 이거는 특정 콘서트의 모든 랭킹 key : value
+    const rank = await this.redisClient.zRangeWithScores(
+      rkConcertScoreRanking(concertId),
+      0,
+      RANK_RETURN_NUM,
+      { REV: true },
+    );
+    client.emit('be-broadcast-new-rank', rank);
+  }
+
   @SubscribeMessage('fe-update-score')
-  handleUpdateScore(
+  async handleUpdateScore(
     client: MySocket,
     [addedScore, updatedScore]: [number, number],
   ) {
     const { concertId } = client.data;
     // 랭킹 업데이트
+    const redisUpdatedScore = await this.redisClient.ZINCRBY(
+      rkConcertScoreRanking(concertId),
+      addedScore,
+      client.data.peerId,
+    );
+    console.log('redisUpdatedScore,', redisUpdatedScore);
 
-    // X분간 추가된 점수 업데이트
-    this.redisClient.HINCRBY(rkConcertAddedScoreForM(), concertId, addedScore);
+    if (redisUpdatedScore !== updatedScore) {
+      //  부정 행위 업데이트
+      console.log('부정 행위', redisUpdatedScore, addedScore, updatedScore);
+      // await this.redisClient.ZINCRBY(
+      //   rkConcertScoreRanking(concertId),
+      //   -updatedScore,
+      //   client.data.peerId,
+      // );
+    } else {
+      // X분간 추가된 점수 업데이트
+      this.redisClient.HINCRBY(
+        rkConcertAddedScoreForM(),
+        concertId,
+        addedScore,
+      );
+    }
   }
 
   // For Streamer
@@ -223,13 +266,4 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
   // handleStRequestQuizResult(client: MySocket, [quizId]: [string]) {
   //   client.emit('be-send-to-st-quiz-data');
   // }
-
-
-  //rank
-  @SubscribeMessage('fe-rank')
-  async handleBroadcastNewRank(client: Socket, [roomId, concertId]) {
-    const rank = await this.redisClient.zRangeWithScores('concertRank' + concertId, 0, -1, { REV: true });
-    client.emit('be-broadcast-new-rank', rank);
-  }
-
 }
