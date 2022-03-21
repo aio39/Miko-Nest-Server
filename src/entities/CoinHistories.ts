@@ -1,4 +1,5 @@
-import { Entity, Index, PrimaryKey, Property } from '@mikro-orm/core';
+import { Entity, Index, OneToOne, PrimaryKey, Property } from '@mikro-orm/core';
+import { Chats } from './Chats';
 
 @Entity()
 export class CoinHistories {
@@ -22,6 +23,9 @@ export class CoinHistories {
   @Index({ name: 'coin_histories_chat_id_index' })
   @Property({ columnType: 'bigint', nullable: true, defaultRaw: `NULL` })
   chatId?: string;
+
+  @OneToOne({ entity: () => Chats, columnType: 'bigint' })
+  chat!: Chats;
 
   @Property({ columnType: 'tinyint(4)', default: 0 })
   type: number = 0;

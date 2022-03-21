@@ -34,7 +34,7 @@ export class Users {
   rememberToken?: string;
 
   @Property({ columnType: 'bigint', defaultRaw: `0` })
-  coin!: string;
+  coin!: number;
 
   @Property({ columnType: 'tinyint(4)', default: 1 })
   type: number = 1;

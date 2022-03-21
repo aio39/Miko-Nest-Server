@@ -1,3 +1,5 @@
+import { EntityRepository } from '@mikro-orm/mysql';
+import { InjectRepository } from '@mikro-orm/nestjs';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   OnGatewayConnection,
@@ -7,14 +9,28 @@ import {
   WebSocketServer,
 } from '@nestjs/websockets';
 import { MAX_PER_ROOM } from 'const';
+import { Chats } from 'entities/Chats';
 import { Users } from 'entities/Users';
 import { RedisClientType } from 'redis';
 import { Server, Socket } from 'socket.io';
 import { RedisSocketServer } from 'types/RedisSocketServer';
+import { ChatMessageInterface } from 'types/share/ChatMessageType';
+import { CoinHistories } from './../entities/CoinHistories';
+import {
+  rkConcertPublicRoom,
+  rkQuiz,
+} from './../helper/createRedisKey/createRedisKey';
 import { EventsService } from './events.service';
 
 type MySocket = Socket & {
-  data: { peerId: string; userData: Users; concertId: number; roomId: string };
+  data: {
+    peerId: string;
+    userData: Users;
+    concertId: string;
+    roomId: string;
+    userTicketId: string;
+    ticketId: string;
+  };
 };
 
 @Injectable()
@@ -28,6 +44,12 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
   constructor(
     private readonly eventsService: EventsService,
     @Inject('REDIS_CONNECTION') private redisClient: RedisClientType<any, any>,
+    @InjectRepository(Chats)
+    private readonly chatsRepository: EntityRepository<Chats>,
+    @InjectRepository(CoinHistories)
+    private readonly coinHistoriesRepository: EntityRepository<CoinHistories>,
+    @InjectRepository(Users)
+    private readonly usersRepository: EntityRepository<Users>,
   ) {}
   @WebSocketServer()
   server!: RedisSocketServer;
@@ -68,79 +90,118 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
   // be-broadcast-peer-id -> 알려준 PeerId를 전파함.
   @SubscribeMessage('fe-new-user-request-join')
   async handleNewUserRequestJoin(
-    client: MySocket & { data: { peerId: string; abc: number } },
-    [peerId, roomId, userData, concertId],
+    client: MySocket,
+    [peerId, roomId, userData, concertId, ticketId, userTicketId],
   ) {
+    console.log('new user request join', userData);
     client.data['peerId'] = peerId;
     client.data['userData'] = userData;
     client.data['concertId'] = concertId;
+    client.data['userTicketId'] = userTicketId;
+    client.data['ticketId'] = ticketId;
     client.data['roomId'] = roomId;
+    //  콘서트 방에 입장
+    if (concertId) client.join(roomId);
 
     // const curNumInRoom = this.server.adapter.rooms.get(roomId)?.size || 0;
     const curNumInRoom = (await this.server.adapter.sockets(new Set([roomId])))
       .size;
-    console.log('new user request join', curNumInRoom);
 
     if (curNumInRoom < MAX_PER_ROOM) {
+      // 현재 들어갈 수 있는 방이어서 입장
       client.join(roomId);
       client.data['roomId'] = roomId;
-      client.to(roomId).emit('be-new-user-come', peerId, roomId, userData);
-      this.redisClient.ZINCRBY('PublicRoom' + concertId, 1, roomId);
+      client
+        .to(roomId)
+        .emit('be-new-user-come', peerId, roomId, userData, client.id);
+      this.redisClient.ZINCRBY(rkConcertPublicRoom(concertId), 1, roomId);
     } else {
+      // 입장 실패후, redis상의 현 방의 인원수를 Max 숫자로 변경해줌.
+      //  이후 Client측에서 새로운 방 번호를 얻어옴.
       client.emit('be-fail-enter-room');
-      this.redisClient.zAdd('PublicRoom' + concertId, {
+      this.redisClient.zAdd(rkConcertPublicRoom(concertId), {
         value: roomId,
         score: MAX_PER_ROOM,
       });
     }
-    if (concertId) client.join(roomId);
   }
 
   @SubscribeMessage('fe-answer-send-peer-id')
-  handleAnswerSendPeerId(client: MySocket, [roomId, peerID, userData]) {
-    console.log('broadcastPeerId', roomId, peerID);
-    client.to(roomId).emit('be-broadcast-peer-id', peerID, userData);
+  handleAnswerSendPeerId(client: MySocket, otherSocketId) {
+    const { roomId, peerId, userData } = client.data;
+    console.log('broadcastPeerId', roomId, peerId);
+    this.server.to(roomId).emit('be-broadcast-peer-id', peerId, userData);
   }
 
   @SubscribeMessage('fe-user-left')
-  handleUserLeft(client: MySocket, [peerId, roomId, concertId]) {
+  handleUserLeft(client: MySocket) {
     this.logger.log('fe-user-left', client.id);
     // Socket 처리
+    const { peerId, concertId, roomId } = client.data;
     client.leave(roomId);
     client.leave(concertId);
     client.to(roomId).emit('be-user-left', peerId);
-    // Redis 처리
-    this.redisClient.ZINCRBY('PublicRoom' + concertId, -1, client.data.roomId);
+    // Redis 에서도 퇴장 처리
+    this.redisClient.ZINCRBY(
+      rkConcertPublicRoom(concertId),
+      -1,
+      client.data.roomId,
+    );
   }
 
+  // 파라메터가 한개일떄는 그냥 받고, 2개 이상  일떄는 배열로 받는다.
   @SubscribeMessage('fe-send-message')
-  handleBroadcastNewMessage(
+  async handleBroadcastNewMessage(
     client: MySocket,
-    [data, roomId]: [string, string],
+    data: ChatMessageInterface,
   ) {
-    console.log(data);
-    client.emit('be-broadcast-new-message', data);
-    client.to(roomId).emit('be-broadcast-new-message', data);
+    if (data.amount) {
+      // SuerChat인 경우
+      const user = await this.usersRepository.findOneOrFail({
+        id: client.data.userData.id,
+      });
+      if (user.coin < data.amount) {
+        console.log(
+          `user ${user.id} 코인 부족, 소지 ${user.coin}, 사용량 : ${data.amount}`,
+        );
+        return client.emit('be-error');
+      }
+      const { concertId, ticketId, userTicketId } = client.data;
+
+      const chat = new Chats();
+      // const chat =   this.chatsRepository.create()
+      chat.userId = user.id;
+      chat.ticketId = ticketId;
+      chat.text = data.text;
+
+      const coinHistory = new CoinHistories();
+
+      coinHistory.userId = user.id;
+      coinHistory.variation = data.amount;
+      // coinHistory.chatId = chat.id;
+      coinHistory.chat = chat;
+      coinHistory.ticketId = ticketId;
+
+      await this.coinHistoriesRepository.persistAndFlush(coinHistory);
+    }
+
+    client.emit('be-broadcast-new-message', data); // 자기 자신에게
+    client.to(client.data.concertId).emit('be-broadcast-new-message', data);
   }
 
   @SubscribeMessage('fe-send-quiz-choice')
   handleFeSendQuizChoice(client: MySocket, [quizId, choice]: [string, string]) {
-    this.redisClient.HINCRBY('quiz' + quizId, choice, 1);
+    this.redisClient.HINCRBY(rkQuiz(quizId), choice, 1);
   }
 
   // For Streamer
   @SubscribeMessage('fe-st-join-concert-room')
-  handleStJoinConcertRoom(client: MySocket, [concertId]: [string]) {
+  handleStJoinConcertRoom(client: MySocket, concertId: string) {
     client.join(concertId);
   }
 
-  @SubscribeMessage('fe-st-request-quiz-result')
-  handleStRequestQuizResult(client: MySocket, [quizId]: [string]) {
-    client.emit('be-send-to-st-quiz-data');
-  }
-
-  // @SubscribeMessage('fe-st-join-concert-room')
-  // handelStBroadcastQuizResult(client: MySocket, [concertId]: [string]) {
-  //   client.join(concertId);
+  // @SubscribeMessage('fe-st-request-quiz-result')
+  // handleStRequestQuizResult(client: MySocket, [quizId]: [string]) {
+  //   client.emit('be-send-to-st-quiz-data');
   // }
 }
