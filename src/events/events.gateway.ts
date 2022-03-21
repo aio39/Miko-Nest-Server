@@ -155,6 +155,18 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
     client: MySocket,
     data: ChatMessageInterface,
   ) {
+    const {
+      concertId,
+      ticketId,
+      userTicketId,
+      userData: { id: userId },
+    } = client.data;
+
+    const chat = new Chats();
+    chat.userId = userId;
+    chat.ticketId = ticketId;
+    chat.text = data.text;
+
     if (data.amount) {
       // SuerChat인 경우
       const user = await this.usersRepository.findOneOrFail({
@@ -166,23 +178,17 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
         );
         return client.emit('be-error');
       }
-      const { concertId, ticketId, userTicketId } = client.data;
-
-      const chat = new Chats();
-      // const chat =   this.chatsRepository.create()
-      chat.userId = user.id;
-      chat.ticketId = ticketId;
-      chat.text = data.text;
 
       const coinHistory = new CoinHistories();
 
       coinHistory.userId = user.id;
       coinHistory.variation = data.amount;
-      // coinHistory.chatId = chat.id;
       coinHistory.chat = chat;
       coinHistory.ticketId = ticketId;
 
       await this.coinHistoriesRepository.persistAndFlush(coinHistory);
+    } else {
+      this.chatsRepository.persistAndFlush(chat);
     }
 
     client.emit('be-broadcast-new-message', data); // 자기 자신에게
@@ -192,6 +198,14 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
   @SubscribeMessage('fe-send-quiz-choice')
   handleFeSendQuizChoice(client: MySocket, [quizId, choice]: [string, string]) {
     this.redisClient.HINCRBY(rkQuiz(quizId), choice, 1);
+  }
+
+  @SubscribeMessage('fe-update-score')
+  handleUpdateScore(
+    client: MySocket,
+    [addedScore, updatedScore]: [number, number],
+  ) {
+    // update score
   }
 
   // For Streamer
