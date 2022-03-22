@@ -2,7 +2,7 @@ import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { Module } from '@nestjs/common';
 import { Chats } from 'entities/Chats';
 import { CoinHistories } from 'entities/CoinHistories';
-import { ConcertAddedScorePerTime } from 'entities/ConcertAddedScorePerTime';
+import { ConcertAddedScorePerTimes } from 'entities/ConcertAddedScorePerTimes';
 import { Concerts } from 'entities/Concerts';
 import { Users } from 'entities/Users';
 import { UserTicket } from 'entities/UserTicket';
@@ -19,7 +19,7 @@ import { UserTicket } from 'entities/UserTicket';
         Users,
         UserTicket,
         Chats,
-        ConcertAddedScorePerTime,
+        ConcertAddedScorePerTimes,
       ],
     }),
   ],
