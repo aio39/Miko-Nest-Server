@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { EventsGateway } from 'events/events.gateway';
-import { rkConcertPublicRoom } from 'helper/createRedisKey/createRedisKey';
+import { rkConTicketPublicRoom } from 'helper/createRedisKey/createRedisKey';
 import { nanoid } from 'nanoid';
 import { RedisClientType } from 'redis';
 
@@ -11,8 +11,8 @@ export class RoomService {
     @Inject('REDIS_CONNECTION') private redisClient: RedisClientType<any, any>,
   ) {}
 
-  async enterRandomRoom(concertId: string) {
-    const redisKey = rkConcertPublicRoom(concertId);
+  async enterRandomRoom(ticketId: number) {
+    const redisKey = rkConTicketPublicRoom(ticketId);
     const result = await this.redisClient.ZRANGE_WITHSCORES(redisKey, 0, 0);
     const newCreatedRoomId = nanoid();
 

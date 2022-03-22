@@ -17,9 +17,9 @@ import { RedisSocketServer } from 'types/RedisSocketServer';
 import { ChatMessageInterface } from 'types/share/ChatMessageType';
 import { CoinHistories } from './../entities/CoinHistories';
 import {
-  rkConcertAddedScoreForM,
-  rkConcertPublicRoom,
-  rkConcertScoreRanking,
+  rkConTicketAddedScoreForM,
+  rkConTicketPublicRoom,
+  rkConTicketScoreRanking,
   rkQuiz,
 } from './../helper/createRedisKey/createRedisKey';
 import { EventsService } from './events.service';
@@ -28,10 +28,10 @@ type MySocket = Socket & {
   data: {
     peerId: string;
     userData: Users;
-    concertId: string;
-    roomId: string;
-    userTicketId: string;
-    ticketId: string;
+    concertId: number;
+    roomId: number;
+    userTicketId: number;
+    ticketId: number;
   };
 };
 
@@ -103,7 +103,7 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
     client.data['ticketId'] = ticketId;
     client.data['roomId'] = roomId;
     //  콘서트 방에 입장
-    if (concertId) client.join(concertId);
+    if (ticketId) client.join(ticketId);
 
     // const curNumInRoom = this.server.adapter.rooms.get(roomId)?.size || 0;
     const curNumInRoom = (await this.server.adapter.sockets(new Set([roomId])))
@@ -116,11 +116,11 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
       client
         .to(roomId)
         .emit('be-new-user-come', peerId, roomId, userData, client.id);
-      this.redisClient.ZINCRBY(rkConcertPublicRoom(concertId), 1, roomId);
+      this.redisClient.ZINCRBY(rkConTicketPublicRoom(ticketId), 1, roomId);
 
       // 기존 랭킹 점수 , 처음이면 0
       const userScore = await this.redisClient.ZINCRBY(
-        rkConcertScoreRanking(concertId),
+        rkConTicketScoreRanking(ticketId),
         0,
         client.data.peerId,
       );
@@ -130,7 +130,7 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
       // 입장 실패후, redis상의 현 방의 인원수를 Max 숫자로 변경해줌.
       //  이후 Client측에서 새로운 방 번호를 얻어옴.
       client.emit('be-fail-enter-room');
-      this.redisClient.zAdd(rkConcertPublicRoom(concertId), {
+      this.redisClient.zAdd(rkConTicketPublicRoom(ticketId), {
         value: roomId,
         score: MAX_PER_ROOM,
       });
@@ -141,22 +141,22 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
   handleAnswerSendPeerId(client: MySocket, otherSocketId) {
     const { roomId, peerId, userData } = client.data;
     console.log('broadcastPeerId', roomId, peerId);
-    this.server.to(roomId).emit('be-broadcast-peer-id', peerId, userData);
+    this.server.to(roomId + '').emit('be-broadcast-peer-id', peerId, userData);
   }
 
   @SubscribeMessage('fe-user-left')
   handleUserLeft(client: MySocket) {
     this.logger.log('fe-user-left', client.id);
     // Socket 처리
-    const { peerId, concertId, roomId } = client.data;
-    client.leave(roomId);
-    client.leave(concertId);
-    client.to(roomId).emit('be-user-left', peerId);
+    const { peerId, concertId, roomId, ticketId } = client.data;
+    client.leave(roomId + '');
+    client.leave(ticketId + '');
+    client.to(roomId + '').emit('be-user-left', peerId);
     // Redis 에서도 퇴장 처리
     this.redisClient.ZINCRBY(
-      rkConcertPublicRoom(concertId),
+      rkConTicketPublicRoom(ticketId),
       -1,
-      client.data.roomId,
+      client.data.roomId + '',
     );
   }
 
@@ -203,20 +203,20 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
     }
 
     client.emit('be-broadcast-new-message', data); // 자기 자신에게
-    client.to(client.data.concertId).emit('be-broadcast-new-message', data);
+    client.to(client.data.ticketId + '').emit('be-broadcast-new-message', data);
   }
 
   @SubscribeMessage('fe-send-quiz-choice')
-  handleFeSendQuizChoice(client: MySocket, [quizId, choice]: [string, string]) {
-    this.redisClient.HINCRBY(rkQuiz(quizId), choice, 1);
+  handleFeSendQuizChoice(client: MySocket, [quizId, choice]: [number, number]) {
+    this.redisClient.HINCRBY(rkQuiz(quizId), choice + '', 1);
   }
 
   // Rank System
   @SubscribeMessage('fe-rank')
-  async handleBroadcastNewRank(client: Socket, [roomId, concertId]) {
+  async handleBroadcastNewRank(client: Socket, [roomId, ticketId]) {
     // 이거는 특정 콘서트의 모든 랭킹 key : value
     const rank = await this.redisClient.zRangeWithScores(
-      rkConcertScoreRanking(concertId),
+      rkConTicketScoreRanking(ticketId),
       0,
       RANK_RETURN_NUM,
       { REV: true },
@@ -229,10 +229,10 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
     client: MySocket,
     [addedScore, updatedScore]: [number, number],
   ) {
-    const { concertId, ticketId } = client.data;
+    const { ticketId, concertId } = client.data;
     // 랭킹 업데이트
     const redisUpdatedScore = await this.redisClient.ZINCRBY(
-      rkConcertScoreRanking(concertId),
+      rkConTicketScoreRanking(ticketId),
       addedScore,
       client.data.peerId,
     );
@@ -242,14 +242,14 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
       //  부정 행위 업데이트
       console.log('부정 행위', redisUpdatedScore, addedScore, updatedScore);
       // await this.redisClient.ZINCRBY(
-      //   rkConcertScoreRanking(concertId),
+      //   rkConcertScoreRanking(ticketId),
       //   -updatedScore,
       //   client.data.peerId,
       // );
     }
     // X분간 추가된 점수 업데이트
     this.redisClient.HINCRBY(
-      rkConcertAddedScoreForM(),
+      rkConTicketAddedScoreForM(),
       concertId + '/' + ticketId,
       addedScore,
     );
@@ -257,8 +257,8 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
 
   // For Streamer
   @SubscribeMessage('fe-st-join-concert-room')
-  handleStJoinConcertRoom(client: MySocket, concertId: string) {
-    client.join(concertId);
+  handleStJoinConcertRoom(client: MySocket, ticketId: string) {
+    client.join(ticketId);
   }
 
   // @SubscribeMessage('fe-st-request-quiz-result')

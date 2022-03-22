@@ -7,7 +7,7 @@ import { Entity, Index, PrimaryKey, Property, Unique } from '@mikro-orm/core';
 })
 export class PersonalAccessTokens {
   @PrimaryKey({ columnType: 'bigint' })
-  id!: string;
+  id!: number;
 
   @Property({ length: 255 })
   tokenableType!: string;

@@ -1,5 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { EventsGateway } from 'events/events.gateway';
+import { rkQuiz } from 'helper/createRedisKey/createRedisKey';
 import { RedisClientType } from 'redis';
 
 @Injectable()
@@ -10,7 +11,7 @@ export class ConcertsService {
   ) {}
 
   async getQuizResult(quizId) {
-    const result = await this.redisClient.HGETALL('quiz' + quizId);
+    const result = await this.redisClient.HGETALL(rkQuiz(quizId));
     return result;
   }
 }

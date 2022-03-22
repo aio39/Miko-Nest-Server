@@ -4,7 +4,7 @@ import { Chats } from './Chats';
 @Entity()
 export class CoinHistories {
   @PrimaryKey({ columnType: 'bigint' })
-  id!: string;
+  id!: number;
 
   @Property({ nullable: true, defaultRaw: `NULL` })
   createdAt?: Date;
@@ -14,15 +14,15 @@ export class CoinHistories {
 
   @Index({ name: 'coin_histories_user_id_index' })
   @Property({ columnType: 'bigint' })
-  userId!: string;
+  userId!: number;
 
   @Index({ name: 'coin_histories_ticket_id_index' })
   @Property({ columnType: 'bigint', nullable: true, defaultRaw: `NULL` })
-  ticketId?: string;
+  ticketId?: number;
 
   @Index({ name: 'coin_histories_chat_id_index' })
   @Property({ columnType: 'bigint', nullable: true, defaultRaw: `NULL` })
-  chatId?: string;
+  chatId?: number;
 
   @OneToOne({ entity: () => Chats, columnType: 'bigint' })
   chat!: Chats;

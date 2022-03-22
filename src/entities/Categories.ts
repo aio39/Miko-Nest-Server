@@ -9,7 +9,7 @@ import {
 @Entity()
 export class Categories {
   @PrimaryKey({ columnType: 'bigint' })
-  id!: string;
+  id!: number;
 
   @Property({ nullable: true, defaultRaw: `NULL` })
   createdAt?: Date;

@@ -19,11 +19,6 @@ import { IvsService } from './ivs.service';
 export class IvsController {
   constructor(private readonly ivsService: IvsService) {}
 
-  @Get('/test')
-  test() {
-    return this.ivsService.test();
-  }
-
   @Get('/')
   getChannelList(@Body() input: ListChannelsCommandInput) {
     return this.ivsService.getChannelList(input);
@@ -31,7 +26,7 @@ export class IvsController {
 
   @Post('/')
   createChannelCommand(
-    @Body() input: CreateChannelCommandInput & { concertId: number },
+    @Body() input: CreateChannelCommandInput & { ticketId: number },
   ) {
     return this.ivsService.createChannelCommand(input);
   }

@@ -3,7 +3,7 @@ import { InjectRepository } from '@mikro-orm/nestjs';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { ConcertAddedScorePerTimes } from 'entities/ConcertAddedScorePerTimes';
-import { rkConcertAddedScoreForM } from 'helper/createRedisKey/createRedisKey';
+import { rkConTicketAddedScoreForM } from 'helper/createRedisKey/createRedisKey';
 import { RedisClientType } from 'redis';
 
 @Injectable()
@@ -19,9 +19,9 @@ export class TasksService {
   @Cron('* * * * *') // 매 0분 0초 마다
   async updateConcertAddedScoreForM() {
     const hashResult = await this.redisClient.HGETALL(
-      rkConcertAddedScoreForM(),
+      rkConTicketAddedScoreForM(),
     );
-    this.redisClient.DEL(rkConcertAddedScoreForM());
+    this.redisClient.DEL(rkConTicketAddedScoreForM());
 
     const dataList: ConcertAddedScorePerTimes[] = [];
 
@@ -29,9 +29,9 @@ export class TasksService {
       const data = new ConcertAddedScorePerTimes();
       data.addedScore = parseInt(score);
       const [concertId, ticketId] = key.split('/');
-      console.log('concert socre', concertId, ticketId);
-      data.concertId = concertId;
-      data.ticketId = ticketId;
+      console.log('concert score', concertId, ticketId);
+      data.concertId = parseInt(concertId);
+      data.ticketId = parseInt(ticketId);
       dataList.push(data);
     }
 

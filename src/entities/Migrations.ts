@@ -2,7 +2,6 @@ import { Entity, PrimaryKey, Property } from '@mikro-orm/core';
 
 @Entity()
 export class Migrations {
-
   @PrimaryKey()
   id!: number;
 
@@ -11,5 +10,4 @@ export class Migrations {
 
   @Property()
   batch!: number;
-
 }

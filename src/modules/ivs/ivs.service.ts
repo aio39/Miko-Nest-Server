@@ -31,7 +31,7 @@ import { EntityRepository } from '@mikro-orm/core';
 import { InjectRepository } from '@mikro-orm/nestjs';
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Concerts } from 'entities/Concerts';
+import { Tickets } from 'entities/Tickets';
 import * as fs from 'fs';
 import * as jwt from 'jsonwebtoken';
 @Injectable()
@@ -40,8 +40,8 @@ export class IvsService {
   private privateKey: Buffer;
   constructor(
     private readonly config: ConfigService,
-    @InjectRepository(Concerts)
-    private readonly concertsRepository: EntityRepository<Concerts>,
+    @InjectRepository(Tickets)
+    private readonly ticketsRepository: EntityRepository<Tickets>,
   ) {
     this.client = new IvsClient({
       credentials: {
@@ -51,10 +51,6 @@ export class IvsService {
       region: this.config.get('AWS_REGION'),
     });
     this.privateKey = fs.readFileSync('private-key.pem');
-  }
-
-  async test() {
-    return this.concertsRepository.findAll();
   }
 
   async getChannelList(input: ListChannelsCommandInput) {
@@ -69,34 +65,34 @@ export class IvsService {
   }
 
   async createChannelCommand(
-    input: CreateChannelCommandInput & { concertId: number },
+    input: CreateChannelCommandInput & { ticketId: number },
   ) {
-    const { concertId, ...commandInput } = input;
-    const concert = await this.concertsRepository.findOneOrFail({
-      id: concertId + '',
+    const { ticketId, ...commandInput } = input;
+    const ticket = await this.ticketsRepository.findOneOrFail({
+      id: ticketId,
     });
 
-    if (concert.channelArn) {
+    if (ticket.channelArn) {
       throw new HttpException('already exists', HttpStatus.CONFLICT);
     }
 
     const command = new CreateChannelCommand({
       ...commandInput,
-      name: concertId + '',
+      name: ticketId + '',
     });
     const { $metadata, channel, streamKey } = await this.client.send(command);
 
     if (channel && streamKey) {
       const { arn: channelArn, playbackUrl, ingestEndpoint } = channel;
       const { arn: streamKeyArn, value } = streamKey;
-      concert.channelArn = channelArn as string;
-      concert.playbackUrl = playbackUrl as string;
-      concert.streamKeyArn = streamKeyArn as string;
-      concert.streamKeyValue = value as string;
-      concert.ingestEndpoint = ingestEndpoint as string;
-      await this.concertsRepository.flush();
+      ticket.channelArn = channelArn as string;
+      ticket.playbackUrl = playbackUrl as string;
+      ticket.streamKeyArn = streamKeyArn as string;
+      ticket.streamKeyValue = value as string;
+      ticket.ingestEndpoint = ingestEndpoint as string;
+      await this.ticketsRepository.flush();
 
-      return concert;
+      return ticket;
     }
   }
 

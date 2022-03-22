@@ -12,7 +12,7 @@ import { Users } from './Users';
 @Index({ name: 'concerts_fulltext_index', properties: ['title', 'artist'] })
 export class Concerts {
   @PrimaryKey({ columnType: 'bigint' })
-  id!: string;
+  id!: number;
 
   @Property({ nullable: true, defaultRaw: `NULL` })
   createdAt?: Date;
@@ -62,19 +62,4 @@ export class Concerts {
 
   @Property({ default: '0000-00-00 00:00:00' })
   allConcertEndDate!: Date;
-
-  @Property({ length: 255 })
-  channelArn!: string;
-
-  @Property({ length: 255 })
-  playbackUrl!: string;
-
-  @Property({ length: 255 })
-  streamKeyArn!: string;
-
-  @Property({ length: 255 })
-  streamKeyValue!: string;
-
-  @Property({ length: 255 })
-  ingestEndpoint!: string;
 }

@@ -2,9 +2,8 @@ import { Entity, Index, PrimaryKey, Property } from '@mikro-orm/core';
 
 @Entity()
 export class Products {
-
   @PrimaryKey({ columnType: 'bigint' })
-  id!: string;
+  id!: number;
 
   @Property({ nullable: true, defaultRaw: `NULL` })
   createdAt?: Date;
@@ -14,7 +13,7 @@ export class Products {
 
   @Index({ name: 'products_concert_id_index' })
   @Property({ columnType: 'bigint' })
-  concertId!: string;
+  concertId!: number;
 
   @Property()
   price!: number;
@@ -27,5 +26,4 @@ export class Products {
 
   @Property({ length: 255 })
   image!: string;
-
 }

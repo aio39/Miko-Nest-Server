@@ -24,6 +24,7 @@
     "HINCRBY",
     "miko",
     "Mikro",
+    "streamkeys",
     "WITHSCORES",
     "ZADD",
     "ZINCRBY",

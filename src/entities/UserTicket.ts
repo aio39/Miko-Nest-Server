@@ -10,7 +10,7 @@ import { Users } from './Users';
 @Entity()
 export class UserTicket {
   @PrimaryKey({ columnType: 'bigint' })
-  id!: string;
+  id!: number;
 
   @Property({ nullable: true, defaultRaw: `NULL` })
   createdAt?: Date;
@@ -28,11 +28,11 @@ export class UserTicket {
 
   @Index({ name: 'user_ticket_ticket_id_index' })
   @Property({ columnType: 'bigint' })
-  ticketId!: string;
+  ticketId!: number;
 
   @Index({ name: 'user_ticket_concert_id_index' })
   @Property({ columnType: 'bigint' })
-  concertId!: string;
+  concertId!: number;
 
   @Property({ default: false })
   isUsed: boolean = false;

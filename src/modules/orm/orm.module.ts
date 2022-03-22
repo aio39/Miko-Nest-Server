@@ -4,6 +4,7 @@ import { Chats } from 'entities/Chats';
 import { CoinHistories } from 'entities/CoinHistories';
 import { ConcertAddedScorePerTimes } from 'entities/ConcertAddedScorePerTimes';
 import { Concerts } from 'entities/Concerts';
+import { Tickets } from 'entities/Tickets';
 import { Users } from 'entities/Users';
 import { UserTicket } from 'entities/UserTicket';
 
@@ -20,6 +21,7 @@ import { UserTicket } from 'entities/UserTicket';
         UserTicket,
         Chats,
         ConcertAddedScorePerTimes,
+        Tickets,
       ],
     }),
   ],
