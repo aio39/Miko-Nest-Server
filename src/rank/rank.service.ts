@@ -16,18 +16,15 @@ export class RankService {
         return rank;
     }
 
-    async getMyRank(concertId: string, roomId: string) {
-        const myRank = await this.redisClient.zRem('PublicRoom' + concertId, roomId);
-        // client.to(roomId).emit('be-send-rank', rank);
-        console.log(myRank);
+    async getMyRank(concertId: string, userId: string) {
+        const myRank = await this.redisClient.zScore('concertRank' + concertId, userId);
         return myRank;
     }
 
     addPlayerToRank(concertId: string, userId: string) {
-        console.log('testing');
         this.redisClient.zAdd('concertRank' + concertId, {
             value: userId,
-            score: Math.random() * 100,
+            score: Math.floor(Math.random() * 100)
         });
     }
 

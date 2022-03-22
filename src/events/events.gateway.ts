@@ -222,9 +222,12 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
 
   //rank
   @SubscribeMessage('fe-rank')
-  async handleBroadcastNewRank(client: Socket, [roomId, concertId]) {
+  async handleBroadcastNewRank(client: Socket, concertId) {
     const rank = await this.redisClient.zRangeWithScores('concertRank' + concertId, 0, -1, { REV: true });
     client.emit('be-broadcast-new-rank', rank);
+    const count = await this.redisClient.zCard('concertRank' + concertId) //키에 속한 멤버 수
   }
+
+
 
 }
