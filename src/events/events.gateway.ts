@@ -1,6 +1,7 @@
 import { EntityRepository } from '@mikro-orm/mysql';
 import { InjectRepository } from '@mikro-orm/nestjs';
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Interval } from '@nestjs/schedule';
 import {
   OnGatewayConnection,
   OnGatewayInit,
@@ -8,7 +9,7 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import { MAX_PER_ROOM } from 'const';
+import { MAX_PER_ROOM, RANK_RETURN_NUM } from 'const';
 import { Chats } from 'entities/Chats';
 import { Users } from 'entities/Users';
 import { RedisClientType } from 'redis';
@@ -17,7 +18,9 @@ import { RedisSocketServer } from 'types/RedisSocketServer';
 import { ChatMessageInterface } from 'types/share/ChatMessageType';
 import { CoinHistories } from './../entities/CoinHistories';
 import {
-  rkConcertPublicRoom,
+  rkConTicketAddedScoreForM,
+  rkConTicketPublicRoom,
+  rkConTicketScoreRanking,
   rkQuiz,
 } from './../helper/createRedisKey/createRedisKey';
 import { EventsService } from './events.service';
@@ -26,10 +29,10 @@ type MySocket = Socket & {
   data: {
     peerId: string;
     userData: Users;
-    concertId: string;
-    roomId: string;
-    userTicketId: string;
-    ticketId: string;
+    concertId: number;
+    roomId: number;
+    userTicketId: number;
+    ticketId: number;
   };
 };
 
@@ -101,7 +104,7 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
     client.data['ticketId'] = ticketId;
     client.data['roomId'] = roomId;
     //  콘서트 방에 입장
-    if (concertId) client.join(roomId);
+    if (ticketId) client.join(ticketId + '');
 
     // const curNumInRoom = this.server.adapter.rooms.get(roomId)?.size || 0;
     const curNumInRoom = (await this.server.adapter.sockets(new Set([roomId])))
@@ -114,12 +117,21 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
       client
         .to(roomId)
         .emit('be-new-user-come', peerId, roomId, userData, client.id);
-      this.redisClient.ZINCRBY(rkConcertPublicRoom(concertId), 1, roomId);
+      this.redisClient.ZINCRBY(rkConTicketPublicRoom(ticketId), 1, roomId);
+
+      // 기존 랭킹 점수 , 처음이면 0
+      const userScore = await this.redisClient.ZINCRBY(
+        rkConTicketScoreRanking(ticketId),
+        0,
+        client.data.peerId,
+      );
+      console.log('기존 랭킹 점수', userScore);
+      if (userScore) client.emit('be-send-user-score', userScore);
     } else {
       // 입장 실패후, redis상의 현 방의 인원수를 Max 숫자로 변경해줌.
       //  이후 Client측에서 새로운 방 번호를 얻어옴.
       client.emit('be-fail-enter-room');
-      this.redisClient.zAdd(rkConcertPublicRoom(concertId), {
+      this.redisClient.zAdd(rkConTicketPublicRoom(ticketId), {
         value: roomId,
         score: MAX_PER_ROOM,
       });
@@ -130,22 +142,22 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
   handleAnswerSendPeerId(client: MySocket, otherSocketId) {
     const { roomId, peerId, userData } = client.data;
     console.log('broadcastPeerId', roomId, peerId);
-    this.server.to(roomId).emit('be-broadcast-peer-id', peerId, userData);
+    this.server.to(roomId + '').emit('be-broadcast-peer-id', peerId, userData);
   }
 
   @SubscribeMessage('fe-user-left')
   handleUserLeft(client: MySocket) {
     this.logger.log('fe-user-left', client.id);
     // Socket 처리
-    const { peerId, concertId, roomId } = client.data;
-    client.leave(roomId);
-    client.leave(concertId);
-    client.to(roomId).emit('be-user-left', peerId);
+    const { peerId, concertId, roomId, ticketId } = client.data;
+    client.leave(roomId + '');
+    client.leave(ticketId + '');
+    client.to(roomId + '').emit('be-user-left', peerId);
     // Redis 에서도 퇴장 처리
     this.redisClient.ZINCRBY(
-      rkConcertPublicRoom(concertId),
+      rkConTicketPublicRoom(ticketId),
       -1,
-      client.data.roomId,
+      client.data.roomId + '',
     );
   }
 
@@ -192,26 +204,71 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
     }
 
     client.emit('be-broadcast-new-message', data); // 자기 자신에게
-    client.to(client.data.concertId).emit('be-broadcast-new-message', data);
+    client.to(client.data.ticketId + '').emit('be-broadcast-new-message', data);
   }
 
   @SubscribeMessage('fe-send-quiz-choice')
-  handleFeSendQuizChoice(client: MySocket, [quizId, choice]: [string, string]) {
-    this.redisClient.HINCRBY(rkQuiz(quizId), choice, 1);
+  handleFeSendQuizChoice(client: MySocket, [quizId, choice]: [number, number]) {
+    this.redisClient.HINCRBY(rkQuiz(quizId), choice + '', 1);
+  }
+
+  // Rank System
+  @SubscribeMessage('fe-rank')
+  async handleBroadcastNewRank(client: Socket, ticketId: number) {
+    // 이거는 특정 콘서트의 모든 랭킹 key : value
+    const rank = await this.redisClient.zRangeWithScores(
+      rkConTicketScoreRanking(ticketId),
+      0,
+      RANK_RETURN_NUM,
+      { REV: true },
+    );
+    client.emit('be-broadcast-new-rank', rank);
+  }
+
+  @SubscribeMessage('fe-myRank')
+  async handleBroadcastNewMyRank(client: Socket, ticketId: number) {
+    const myRank = await this.redisClient.zScore(rkConTicketPublicRoom(ticketId), client.data['peerId']);
+    client.emit('be-broadcast-new-rank', myRank);
+    // client.to(roomId).emit('be-send-rank', rank);
+    console.log('mr', myRank);
+    return myRank;
   }
 
   @SubscribeMessage('fe-update-score')
-  handleUpdateScore(
+  async handleUpdateScore(
     client: MySocket,
     [addedScore, updatedScore]: [number, number],
   ) {
-    // update score
+    const { ticketId, concertId } = client.data;
+    // 랭킹 업데이트
+    const redisUpdatedScore = await this.redisClient.ZINCRBY(
+      rkConTicketScoreRanking(ticketId),
+      addedScore,
+      client.data.peerId,
+    );
+    console.log('redisUpdatedScore,', redisUpdatedScore);
+
+    if (redisUpdatedScore !== updatedScore) {
+      //  부정 행위 업데이트
+      console.log('부정 행위', redisUpdatedScore, addedScore, updatedScore);
+      // await this.redisClient.ZINCRBY(
+      //   rkConcertScoreRanking(ticketId),
+      //   -updatedScore,
+      //   client.data.peerId,
+      // );
+    }
+    // X분간 추가된 점수 업데이트
+    this.redisClient.HINCRBY(
+      rkConTicketAddedScoreForM(),
+      concertId + '/' + ticketId,
+      addedScore,
+    );
   }
 
   // For Streamer
   @SubscribeMessage('fe-st-join-concert-room')
-  handleStJoinConcertRoom(client: MySocket, concertId: string) {
-    client.join(concertId);
+  handleStJoinConcertRoom(client: MySocket, ticketId: string) {
+    client.join(ticketId);
   }
 
   // @SubscribeMessage('fe-st-request-quiz-result')
@@ -219,15 +276,27 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
   //   client.emit('be-send-to-st-quiz-data');
   // }
 
-
-  //rank
-  @SubscribeMessage('fe-rank')
-  async handleBroadcastNewRank(client: Socket, concertId) {
-    const rank = await this.redisClient.zRangeWithScores('concertRank' + concertId, 0, -1, { REV: true });
-    client.emit('be-broadcast-new-rank', rank);
-    const count = await this.redisClient.zCard('concertRank' + concertId) //키에 속한 멤버 수
+  @Interval(10000)
+  async handleBroadcastRank() {
+    const keys = await this.redisClient.keys('*ScoreRanking-*');
+    console.log('keys', keys);
+    if (keys) {
+      for (let i = 0; i < keys.length; i++) {
+        const key = keys[i].split('-')[1];
+        const rank = await this.redisClient.zRangeWithScores(
+          rkConTicketScoreRanking(+key), 0, -1, { REV: true });
+        this.server.to(key).emit('be-broadcast-rank', rank);
+      }
+    }
+    console.log(this.server.adapter.rooms);
   }
 
-
-
+  @SubscribeMessage('fe-update-myRank')
+  async handleMyScore(client: MySocket, [ticketId, uuid]) {
+    const myRank = (await this.redisClient.zRevRank(rkConTicketScoreRanking(ticketId), uuid))! + 1;
+    //client.to(client.id).emit('be-update-myRank', myRank);
+    client.emit('be-update-myRank', myRank);
+    console.log('help2', uuid, 'helo', ticketId, 'myRa', myRank, typeof myRank);
+    return myRank;
+  }
 }
