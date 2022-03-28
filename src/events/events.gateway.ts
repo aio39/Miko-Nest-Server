@@ -284,7 +284,7 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
       for (let i = 0; i < keys.length; i++) {
         const key = keys[i].split('-')[1];
         const rank = await this.redisClient.zRangeWithScores(
-          rkConTicketScoreRanking(+key), 0, -1, { REV: true });
+          rkConTicketScoreRanking(+key), 0, RANK_RETURN_NUM, { REV: true });
         this.server.to(key).emit('be-broadcast-rank', rank);
       }
     }
@@ -294,7 +294,8 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
   @SubscribeMessage('fe-update-myRank')
   async handleMyScore(client: MySocket, [ticketId, uuid]) {
     const myRank = (await this.redisClient.zRevRank(rkConTicketScoreRanking(ticketId), uuid))! + 1;
-    //client.to(client.id).emit('be-update-myRank', myRank);
+    const clientId: string = client.id;
+    client.to(clientId).emit('be-update-myRank', myRank);
     client.emit('be-update-myRank', myRank);
     console.log('help2', uuid, 'helo', ticketId, 'myRa', myRank, typeof myRank);
     return myRank;

@@ -7,4 +7,4 @@ export const rkConcertScoreRanking = (concertId: string) =>
   `ScoreRanking${concertId}`;
 
 // 특정 Quiz(설문)의 각 항문에 대한 응답 횟수
-export const rkQuiz = (quizId: string) => `Quiz${quizId}`;
+export const rkQuiz = (quizId: number) => `Quiz-${quizId}`;
