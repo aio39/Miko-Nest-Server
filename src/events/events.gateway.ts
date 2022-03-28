@@ -1,6 +1,7 @@
 import { EntityRepository } from '@mikro-orm/mysql';
 import { InjectRepository } from '@mikro-orm/nestjs';
 import { Inject, Injectable, Logger } from '@nestjs/common';
+import { Interval } from '@nestjs/schedule';
 import {
   OnGatewayConnection,
   OnGatewayInit,
@@ -52,7 +53,7 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
     private readonly coinHistoriesRepository: EntityRepository<CoinHistories>,
     @InjectRepository(Users)
     private readonly usersRepository: EntityRepository<Users>,
-  ) {}
+  ) { }
   @WebSocketServer()
   server!: RedisSocketServer;
 
@@ -103,7 +104,7 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
     client.data['ticketId'] = ticketId;
     client.data['roomId'] = roomId;
     //  콘서트 방에 입장
-    if (ticketId) client.join(ticketId);
+    if (ticketId) client.join(ticketId + '');
 
     // const curNumInRoom = this.server.adapter.rooms.get(roomId)?.size || 0;
     const curNumInRoom = (await this.server.adapter.sockets(new Set([roomId])))
@@ -213,7 +214,7 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
 
   // Rank System
   @SubscribeMessage('fe-rank')
-  async handleBroadcastNewRank(client: Socket, [roomId, ticketId]) {
+  async handleBroadcastNewRank(client: Socket, ticketId: number) {
     // 이거는 특정 콘서트의 모든 랭킹 key : value
     const rank = await this.redisClient.zRangeWithScores(
       rkConTicketScoreRanking(ticketId),
@@ -222,6 +223,15 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
       { REV: true },
     );
     client.emit('be-broadcast-new-rank', rank);
+  }
+
+  @SubscribeMessage('fe-myRank')
+  async handleBroadcastNewMyRank(client: Socket, ticketId: number) {
+    const myRank = await this.redisClient.zScore(rkConTicketPublicRoom(ticketId), client.data['peerId']);
+    client.emit('be-broadcast-new-rank', myRank);
+    // client.to(roomId).emit('be-send-rank', rank);
+    console.log('mr', myRank);
+    return myRank;
   }
 
   @SubscribeMessage('fe-update-score')
@@ -265,4 +275,29 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
   // handleStRequestQuizResult(client: MySocket, [quizId]: [string]) {
   //   client.emit('be-send-to-st-quiz-data');
   // }
+
+  @Interval(10000)
+  async handleBroadcastRank() {
+    const keys = await this.redisClient.keys('*ScoreRanking-*');
+    console.log('keys', keys);
+    if (keys) {
+      for (let i = 0; i < keys.length; i++) {
+        const key = keys[i].split('-')[1];
+        const rank = await this.redisClient.zRangeWithScores(
+          rkConTicketScoreRanking(+key), 0, RANK_RETURN_NUM, { REV: true });
+        this.server.to(key).emit('be-broadcast-rank', rank);
+      }
+    }
+    console.log(this.server.adapter.rooms);
+  }
+
+  @SubscribeMessage('fe-update-myRank')
+  async handleMyScore(client: MySocket, [ticketId, uuid]) {
+    const myRank = (await this.redisClient.zRevRank(rkConTicketScoreRanking(ticketId), uuid))! + 1;
+    const clientId: string = client.id;
+    client.to(clientId).emit('be-update-myRank', myRank);
+    client.emit('be-update-myRank', myRank);
+    console.log('help2', uuid, 'helo', ticketId, 'myRa', myRank, typeof myRank);
+    return myRank;
+  }
 }
