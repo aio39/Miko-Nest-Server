@@ -1,9 +1,14 @@
 import { EntityRepository } from '@mikro-orm/core';
 import { InjectRepository } from '@mikro-orm/nestjs';
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
+import { Cron, Interval } from '@nestjs/schedule';
+import { RANK_RETURN_NUM } from 'const';
 import { ConcertAddedScorePerTimes } from 'entities/ConcertAddedScorePerTimes';
-import { rkConTicketAddedScoreForM } from 'helper/createRedisKey/createRedisKey';
+import { EventsGateway } from 'events/events.gateway';
+import {
+  rkConTicketAddedScoreForM,
+  rkConTicketScoreRanking,
+} from 'helper/createRedisKey/createRedisKey';
 import { RedisClientType } from 'redis';
 
 @Injectable()
@@ -12,6 +17,7 @@ export class TasksService {
     @Inject('REDIS_CONNECTION') private redisClient: RedisClientType<any, any>,
     @InjectRepository(ConcertAddedScorePerTimes)
     private readonly concertAddedScorePerTime: EntityRepository<ConcertAddedScorePerTimes>,
+    private readonly eventGateway: EventsGateway,
   ) {}
 
   private readonly logger = new Logger(TasksService.name);
@@ -38,13 +44,22 @@ export class TasksService {
     this.concertAddedScorePerTime.persistAndFlush(dataList);
   }
 
-  // @Interval(10000)
-  // handleInterval() {
-  //   this.logger.debug('Called every 10 seconds');
-  // }
+  @Interval(5000)
+  async handleBroadcastRank() {
+    const keys = await this.redisClient.keys('ScoreRanking-*');
 
-  // @Timeout(5000)
-  // handleTimeout() {
-  //   this.logger.debug('Called once after 5 seconds');
-  // }
+    keys.map((key) => {
+      const ticketId = key.split('-')[1];
+      this.redisClient
+        .zRangeWithScores(
+          rkConTicketScoreRanking(+ticketId),
+          0,
+          RANK_RETURN_NUM,
+          { REV: true },
+        )
+        .then((rank) => {
+          this.eventGateway.server.to(ticketId).emit('be-broadcast-rank', rank);
+        });
+    });
+  }
 }

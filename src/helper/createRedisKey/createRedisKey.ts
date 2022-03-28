@@ -6,6 +6,7 @@ export const rkConTicketPublicRoom = (ticketId: number) =>
   `PublicRoom-${ticketId}`;
 
 //  특정 콘서트(티켓)의 스코어 랭킹
+//  user.name : score
 export const rkConTicketScoreRanking = (ticketId: number) =>
   `ScoreRanking-${ticketId}`;
 

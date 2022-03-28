@@ -1,7 +1,6 @@
 import { EntityRepository } from '@mikro-orm/mysql';
 import { InjectRepository } from '@mikro-orm/nestjs';
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { Interval } from '@nestjs/schedule';
 import {
   OnGatewayConnection,
   OnGatewayInit,
@@ -42,7 +41,6 @@ type MySocket = Socket & {
   namespace: '/',
   cors: { origin: '*' },
 })
-// OnGatewayDisconnect
 export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
   constructor(
     private readonly eventsService: EventsService,
@@ -53,7 +51,7 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
     private readonly coinHistoriesRepository: EntityRepository<CoinHistories>,
     @InjectRepository(Users)
     private readonly usersRepository: EntityRepository<Users>,
-  ) { }
+  ) {}
   @WebSocketServer()
   server!: RedisSocketServer;
 
@@ -123,7 +121,7 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
       const userScore = await this.redisClient.ZINCRBY(
         rkConTicketScoreRanking(ticketId),
         0,
-        client.data.peerId,
+        client.data.userData.name,
       );
       console.log('기존 랭킹 점수', userScore);
       if (userScore) client.emit('be-send-user-score', userScore);
@@ -212,28 +210,6 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
     this.redisClient.HINCRBY(rkQuiz(quizId), choice + '', 1);
   }
 
-  // Rank System
-  @SubscribeMessage('fe-rank')
-  async handleBroadcastNewRank(client: Socket, ticketId: number) {
-    // 이거는 특정 콘서트의 모든 랭킹 key : value
-    const rank = await this.redisClient.zRangeWithScores(
-      rkConTicketScoreRanking(ticketId),
-      0,
-      RANK_RETURN_NUM,
-      { REV: true },
-    );
-    client.emit('be-broadcast-new-rank', rank);
-  }
-
-  @SubscribeMessage('fe-myRank')
-  async handleBroadcastNewMyRank(client: Socket, ticketId: number) {
-    const myRank = await this.redisClient.zScore(rkConTicketPublicRoom(ticketId), client.data['peerId']);
-    client.emit('be-broadcast-new-rank', myRank);
-    // client.to(roomId).emit('be-send-rank', rank);
-    console.log('mr', myRank);
-    return myRank;
-  }
-
   @SubscribeMessage('fe-update-score')
   async handleUpdateScore(
     client: MySocket,
@@ -244,7 +220,7 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
     const redisUpdatedScore = await this.redisClient.ZINCRBY(
       rkConTicketScoreRanking(ticketId),
       addedScore,
-      client.data.peerId,
+      client.data.userData.name,
     );
     console.log('redisUpdatedScore,', redisUpdatedScore);
 
@@ -265,39 +241,52 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
     );
   }
 
-  // For Streamer
-  @SubscribeMessage('fe-st-join-concert-room')
-  handleStJoinConcertRoom(client: MySocket, ticketId: string) {
-    client.join(ticketId);
-  }
-
   // @SubscribeMessage('fe-st-request-quiz-result')
   // handleStRequestQuizResult(client: MySocket, [quizId]: [string]) {
   //   client.emit('be-send-to-st-quiz-data');
   // }
 
-  @Interval(10000)
-  async handleBroadcastRank() {
-    const keys = await this.redisClient.keys('*ScoreRanking-*');
-    console.log('keys', keys);
-    if (keys) {
-      for (let i = 0; i < keys.length; i++) {
-        const key = keys[i].split('-')[1];
-        const rank = await this.redisClient.zRangeWithScores(
-          rkConTicketScoreRanking(+key), 0, RANK_RETURN_NUM, { REV: true });
-        this.server.to(key).emit('be-broadcast-rank', rank);
-      }
-    }
-    console.log(this.server.adapter.rooms);
+  // Rank System
+  @SubscribeMessage('fe-rank')
+  async handleBroadcastNewRank(client: MySocket, ticketId: number) {
+    // 이거는 특정 콘서트의 모든 랭킹 key : value
+    const rank = await this.redisClient.zRangeWithScores(
+      rkConTicketScoreRanking(ticketId),
+      0,
+      RANK_RETURN_NUM,
+      { REV: true },
+    );
+    client.emit('be-broadcast-new-rank', rank);
+  }
+
+  @SubscribeMessage('fe-myRank')
+  async handleGetMyRank(client: MySocket, ticketId: number) {
+    const { userData } = client.data;
+
+    const myRank = await this.redisClient.zScore(
+      rkConTicketScoreRanking(ticketId),
+      userData.name,
+    );
+    client.emit('be-broadcast-new-rank', myRank);
   }
 
   @SubscribeMessage('fe-update-myRank')
-  async handleMyScore(client: MySocket, [ticketId, uuid]) {
-    const myRank = (await this.redisClient.zRevRank(rkConTicketScoreRanking(ticketId), uuid))! + 1;
-    const clientId: string = client.id;
-    client.to(clientId).emit('be-update-myRank', myRank);
-    client.emit('be-update-myRank', myRank);
-    console.log('help2', uuid, 'helo', ticketId, 'myRa', myRank, typeof myRank);
-    return myRank;
+  async handleGetMyScore(client: MySocket) {
+    const { userData, ticketId } = client.data;
+
+    const myRankIdx = await this.redisClient.zRevRank(
+      rkConTicketScoreRanking(ticketId),
+      userData.name,
+    );
+
+    if (myRankIdx) {
+      client.emit('be-update-myRank', myRankIdx + 1);
+    }
+  }
+
+  // For Streamer
+  @SubscribeMessage('fe-st-join-concert-room')
+  handleStJoinConcertRoom(client: MySocket, ticketId: string) {
+    client.join(ticketId);
   }
 }

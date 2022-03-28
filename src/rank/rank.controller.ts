@@ -15,6 +15,6 @@ export class RankController {
     @Param('concertId') concertId: number,
     @Param('userId') userId: number,
   ) {
-    return this.rankService.addPlayerToRank(concertId, userId);
+    // return this.rankService.addPlayerToRank(concertId, userId);
   }
 }
