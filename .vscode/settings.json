@@ -22,9 +22,11 @@
   "cSpell.words": [
     "HGETALL",
     "HINCRBY",
+    "longtext",
     "miko",
     "Mikro",
     "streamkeys",
+    "websockets",
     "WITHSCORES",
     "ZADD",
     "ZINCRBY",

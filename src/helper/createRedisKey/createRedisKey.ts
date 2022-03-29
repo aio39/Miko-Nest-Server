@@ -12,6 +12,11 @@ export const rkConTicketScoreRanking = (ticketId: number) =>
 
 // 콘서트(티켓)마다 N분 마다 추가된 점수
 export const rkConTicketAddedScoreForM = () => `TiCoAddedScoreForM`;
+export const rkConTicketAmountDoneForM = () => `TiCoAmDoneForM`;
+export const rkConTicketAmountSuChatForM = () => `TiCoAmSuChatForM`;
+export const rkConTicketAddedChatForM = () => `TiCoAmChatForM`;
+
+export const rkConTicketEnterUserNum = () => `TiCoEnterUser`;
 
 // 특정 Quiz(설문)의 각 항문에 대한 응답 횟수
 export const rkQuiz = (quizId: number) => `Quiz-${quizId}`;

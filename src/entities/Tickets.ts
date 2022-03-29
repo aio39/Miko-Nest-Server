@@ -36,18 +36,26 @@ export class Tickets {
   @Property({ default: '0000-00-00 00:00:00' })
   archiveEndTime!: Date;
 
-  @Property({ length: 255 })
-  channelArn!: string;
+  @Property({ length: 255, nullable: true, default: 'NULL' })
+  channelArn?: string;
 
-  @Property({ length: 255 })
-  playbackUrl!: string;
+  @Property({ length: 255, nullable: true, default: 'NULL' })
+  playbackUrl?: string;
 
-  @Property({ length: 255 })
-  streamKeyArn!: string;
+  @Property({ length: 255, nullable: true, default: 'NULL' })
+  streamKeyArn?: string;
 
-  @Property({ length: 255 })
-  streamKeyValue!: string;
+  @Property({ length: 255, nullable: true, default: 'NULL' })
+  streamKeyValue?: string;
 
-  @Property({ length: 255 })
-  ingestEndpoint!: string;
+  @Property({ length: 255, nullable: true, default: 'NULL' })
+  ingestEndpoint?: string;
+
+  @Property({
+    columnType: 'longtext',
+    length: 4294967295,
+    nullable: true,
+    default: 'NULL',
+  })
+  timeMetaData?: unknown;
 }
