@@ -5,6 +5,10 @@ import { SubscribeMessage, WebSocketGateway } from '@nestjs/websockets';
 import { Chats } from 'entities/Chats';
 import { Users } from 'entities/Users';
 import { EventsGateway } from 'events/events.gateway';
+import {
+  createRpConTicketAddedChatForM,
+  createRpConTicketAmountSuChatForM,
+} from 'helper/createRedisKey/createRedisKey';
 import { RedisClientType } from 'redis';
 import { MySocket } from 'types/MySocket';
 import { ChatMessageInterface } from 'types/share/ChatMessageType';
@@ -60,6 +64,10 @@ export class ChatGateway {
         return client.emit('be-error');
       }
 
+      this.redisClient.HINCRBY(
+        ...createRpConTicketAmountSuChatForM(concertId, ticketId, data.amount),
+      );
+
       const coinHistory = new CoinHistories();
 
       coinHistory.userId = user.id;
@@ -71,6 +79,10 @@ export class ChatGateway {
     } else {
       this.chatsRepository.persistAndFlush(chat);
     }
+
+    this.redisClient.HINCRBY(
+      ...createRpConTicketAddedChatForM(concertId, ticketId),
+    );
 
     client.emit('be-broadcast-new-message', data); // 자기 자신에게
     client.to(client.data.ticketId + '').emit('be-broadcast-new-message', data);

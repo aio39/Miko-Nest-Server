@@ -7,6 +7,7 @@ import { Chats } from 'entities/Chats';
 import { Users } from 'entities/Users';
 import { EventsGateway } from 'events/events.gateway';
 import {
+  createRpConTicketEnterUserNum,
   rkConTicketPublicRoom,
   rkConTicketScoreRanking,
 } from 'helper/createRedisKey/createRedisKey';
@@ -66,6 +67,9 @@ export class EnterGateway {
         .to(roomId)
         .emit('be-new-user-come', peerId, roomId, userData, client.id);
       this.redisClient.ZINCRBY(rkConTicketPublicRoom(ticketId), 1, roomId);
+      this.redisClient.HINCRBY(
+        ...createRpConTicketEnterUserNum(concertId, ticketId, 1),
+      );
 
       // 기존 랭킹 점수 , 처음이면 0
       const userScore = await this.redisClient.ZINCRBY(
@@ -108,6 +112,10 @@ export class EnterGateway {
       rkConTicketPublicRoom(ticketId),
       -1,
       client.data.roomId + '',
+    );
+
+    this.redisClient.HINCRBY(
+      ...createRpConTicketEnterUserNum(concertId, ticketId, -1),
     );
   }
 }

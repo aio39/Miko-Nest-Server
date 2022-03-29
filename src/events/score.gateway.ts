@@ -6,7 +6,7 @@ import { Chats } from 'entities/Chats';
 import { Users } from 'entities/Users';
 import { EventsGateway } from 'events/events.gateway';
 import {
-  rkConTicketAddedScoreForM,
+  createRpConTicketAddedScoreForM,
   rkConTicketScoreRanking,
 } from 'helper/createRedisKey/createRedisKey';
 import { RedisClientType } from 'redis';
@@ -58,9 +58,7 @@ export class ScoreGateway {
     }
     // X분간 추가된 점수 업데이트
     this.redisClient.HINCRBY(
-      rkConTicketAddedScoreForM(),
-      concertId + '/' + ticketId,
-      addedScore,
+      ...createRpConTicketAddedScoreForM(concertId, ticketId, addedScore),
     );
   }
 }

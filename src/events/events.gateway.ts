@@ -54,6 +54,7 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
   //   console.log(client.rooms);
   // }
 
+  // TODO  left-user vs disconnection
   @SubscribeMessage('disconnecting')
   handleDisconnecting(client: MySocket, reason) {
     //  Socket이 Room에서 제거되기전 Fire
