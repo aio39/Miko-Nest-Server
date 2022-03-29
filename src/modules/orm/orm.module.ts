@@ -4,6 +4,10 @@ import { Chats } from 'entities/Chats';
 import { CoinHistories } from 'entities/CoinHistories';
 import { ConcertAddedScorePerTimes } from 'entities/ConcertAddedScorePerTimes';
 import { Concerts } from 'entities/Concerts';
+import { CoTiAddedChatPerTimes } from 'entities/CoTiAddedChatPerTimes';
+import { CoTiAmountDonePerTimes } from 'entities/CoTiAmountDonePerTimes';
+import { CoTiAmountSuperChatPerTimes } from 'entities/CoTiAmountSuperChatPerTimes';
+import { CoTiCurEnterUserNums } from 'entities/CoTiCurEnterUserNums';
 import { Tickets } from 'entities/Tickets';
 import { Users } from 'entities/Users';
 import { UserTicket } from 'entities/UserTicket';
@@ -21,6 +25,10 @@ import { UserTicket } from 'entities/UserTicket';
         UserTicket,
         Chats,
         ConcertAddedScorePerTimes,
+        CoTiAddedChatPerTimes,
+        CoTiAmountDonePerTimes,
+        CoTiAmountSuperChatPerTimes,
+        CoTiCurEnterUserNums,
         Tickets,
       ],
     }),
