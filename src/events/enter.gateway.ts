@@ -45,6 +45,25 @@ export class EnterGateway {
     [peerId, roomId, userData, concertId, ticketId, userTicketId],
   ) {
     console.log('new user request join', userData);
+    if (
+      !peerId ||
+      !roomId ||
+      !userData ||
+      !concertId ||
+      !ticketId ||
+      !userTicketId
+    ) {
+      console.log('socket의 데이터가 부족합니다.', [
+        peerId,
+        roomId,
+        userData,
+        concertId,
+        ticketId,
+        userTicketId,
+      ]);
+      return client.emit('be-back-to-start');
+    }
+
     client.data['peerId'] = peerId;
     client.data['userData'] = userData;
     client.data['concertId'] = concertId;
@@ -52,7 +71,8 @@ export class EnterGateway {
     client.data['ticketId'] = ticketId;
     client.data['roomId'] = roomId;
     //  콘서트 방에 입장
-    if (ticketId) client.join(ticketId + '');
+
+    client.join(ticketId + '');
 
     // const curNumInRoom = this.eventsGateway.server.adapter.rooms.get(roomId)?.size || 0;
     const curNumInRoom = (

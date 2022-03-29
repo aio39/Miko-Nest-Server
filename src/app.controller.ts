@@ -17,6 +17,11 @@ export class AppController {
     return false;
   }
 
+  @Get('/test')
+  test() {
+    return 'test';
+  }
+
   @Get('/health-check')
   healthCheck(): string {
     return 'ok';

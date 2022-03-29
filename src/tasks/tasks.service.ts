@@ -17,7 +17,7 @@ import {
   rkConTicketAmountDoneForM,
   rkConTicketAmountSuChatForM,
   rkConTicketEnterUserNum,
-  rkConTicketScoreRanking,
+  rkConTicketScoreRanking
 } from 'helper/createRedisKey/createRedisKey';
 import { RedisClientType } from 'redis';
 // import timezone from 'dayjs/plugin/timezone';
@@ -196,7 +196,7 @@ export class TasksService {
     });
   }
 
-  @Interval(5000)
+  @Interval(1500)
   async handleBroadcastRank() {
     const keys = await this.redisClient.keys('ScoreRanking-*');
     keys.map((key) => {

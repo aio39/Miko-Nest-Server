@@ -54,7 +54,7 @@ export class RankGateway {
     client.emit('be-broadcast-new-rank', myRank);
   }
 
-  @SubscribeMessage('fe-update-myRank')
+  @SubscribeMessage('fe-get-myRank')
   async handleGetMyScore(client: MySocket) {
     const { userData, ticketId } = client.data;
 
@@ -63,7 +63,7 @@ export class RankGateway {
       userData.name,
     );
 
-    if (myRankIdx) {
+    if (myRankIdx || myRankIdx === 0) {
       client.emit('be-update-myRank', myRankIdx + 1);
     }
   }
