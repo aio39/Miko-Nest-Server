@@ -46,6 +46,7 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
 
   handleConnection(client: MySocket, ...args: any[]) {
     this.logger.log(`Client Connected : ${client.id}`);
+    client.setMaxListeners(0);
     // client.leave(client.id); // 자기 자신방 나감
   }
 
