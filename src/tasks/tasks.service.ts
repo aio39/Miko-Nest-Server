@@ -3,11 +3,13 @@ import { InjectRepository } from '@mikro-orm/nestjs';
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, Interval } from '@nestjs/schedule';
 import { RANK_RETURN_NUM } from 'const';
+import * as dayjs from 'dayjs';
 import { ConcertAddedScorePerTimes } from 'entities/ConcertAddedScorePerTimes';
 import { CoTiAddedChatPerTimes } from 'entities/CoTiAddedChatPerTimes';
 import { CoTiAmountDonePerTimes } from 'entities/CoTiAmountDonePerTimes';
 import { CoTiAmountSuperChatPerTimes } from 'entities/CoTiAmountSuperChatPerTimes';
 import { CoTiCurEnterUserNums } from 'entities/CoTiCurEnterUserNums';
+import { Tickets } from 'entities/Tickets';
 import { EventsGateway } from 'events/events.gateway';
 import {
   rkConTicketAddedChatForM,
@@ -18,11 +20,11 @@ import {
   rkConTicketScoreRanking,
 } from 'helper/createRedisKey/createRedisKey';
 import { RedisClientType } from 'redis';
-
+// import timezone from 'dayjs/plugin/timezone';
+// dayjs.extend(timezone);
+// dayjs.tz.setDefault('Asia/Tokyo');
 @Injectable()
 export class TasksService {
-  private server;
-
   constructor(
     @Inject('REDIS_CONNECTION') private redisClient: RedisClientType<any, any>,
     @InjectRepository(ConcertAddedScorePerTimes)
@@ -35,10 +37,10 @@ export class TasksService {
     private readonly coTiAmountSuperChatPerTimes: EntityRepository<CoTiAmountSuperChatPerTimes>,
     @InjectRepository(CoTiCurEnterUserNums)
     private readonly coTiCurEnterUserNums: EntityRepository<CoTiCurEnterUserNums>,
+    @InjectRepository(Tickets)
+    private readonly ticketRepo: EntityRepository<Tickets>,
     private readonly eventGateway: EventsGateway,
-  ) {
-    this.server = this.eventGateway.server;
-  }
+  ) {}
 
   private readonly logger = new Logger(TasksService.name);
 
@@ -155,7 +157,44 @@ export class TasksService {
   }
 
   // TODO 콘서트 정리 작업
-  // 종료된
+  // @Cron('5 * * * * *') // 매 0분 5초 마다
+  async cleanUpConcertRedis() {
+    // 현재 입장중인 유저가 존재하는 콘서트티켓 리스트
+    const hashResult = await this.redisClient.HGETALL(
+      rkConTicketEnterUserNum(),
+    );
+
+    const ticketIdList: number[] = [];
+    const concertIdList: number[] = [];
+
+    for (const [key, amount] of Object.entries(hashResult)) {
+      const [concertId, ticketId] = key.split('/').map(parseInt);
+      concertIdList.push(concertId);
+      ticketIdList.push(ticketId);
+    }
+
+    const tickets = await this.ticketRepo.find({ id: { $in: ticketIdList } });
+
+    tickets.forEach((ticket) => {
+      if (dayjs().isAfter(ticket.concertEndDate)) {
+        //  현재 입장중 유저 초기화
+        this.redisClient.HDEL(rkConTicketEnterUserNum(), [
+          ticket.concertId + '/' + ticket.id,
+        ]);
+        // 유저 강퇴 및 소켓 삭제
+        this.eventGateway.server.to(ticket.id + '').emit('be-go-out-room');
+
+        //  랭킹 정보 저장
+        this.redisClient
+          .zRangeWithScores(rkConTicketScoreRanking(ticket.id), 0, -1, {
+            REV: true,
+          })
+          .then((result) => {
+            //  TODO 랭킹 정보 저장
+          });
+      }
+    });
+  }
 
   @Interval(5000)
   async handleBroadcastRank() {
