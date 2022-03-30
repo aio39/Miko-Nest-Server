@@ -5,6 +5,7 @@ import { SubscribeMessage, WebSocketGateway } from '@nestjs/websockets';
 import { Chats } from 'entities/Chats';
 import { Users } from 'entities/Users';
 import { EventsGateway } from 'events/events.gateway';
+import { rkConTicketScoreRanking } from 'helper/createRedisKey/createRedisKey';
 import { RedisClientType } from 'redis';
 import { MySocket } from 'types/MySocket';
 import { CoinHistories } from '../entities/CoinHistories';
@@ -29,8 +30,22 @@ export class StreamerGateway {
     private readonly eventsGateway: EventsGateway,
   ) {}
 
-  @SubscribeMessage('fe-st-join-concert-room')
-  handleStJoinConcertRoom(client: MySocket, ticketId: string) {
-    client.join(ticketId);
+  // @SubscribeMessage('fe-st-join-concert-room')
+  // handleStJoinConcertRoom(client: MySocket, ticketId: string) {
+  //   client.join(ticketId);
+  // }
+
+  @SubscribeMessage('fe-all-rank')
+  async handleBroadcastNewRank(
+    client: MySocket,
+    [ticketId, start = 0, end = 50],
+  ) {
+    const rank = await this.redisClient.zRangeWithScores(
+      rkConTicketScoreRanking(ticketId),
+      start,
+      end,
+      { REV: true },
+    );
+    client.emit('be-all-rank', rank);
   }
 }

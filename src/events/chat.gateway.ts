@@ -125,7 +125,6 @@ export class ChatGateway {
     } = client.data;
     const { itemId, sender, timestamp } = data;
     const { price } = doneItem[itemId];
-
     const viewer = await this.usersRepository.findOneOrFail({
       id: client.data.userData.id,
     });
