@@ -17,7 +17,7 @@ import {
   rkConTicketAmountDoneForM,
   rkConTicketAmountSuChatForM,
   rkConTicketEnterUserNum,
-  rkConTicketScoreRanking
+  rkConTicketScoreRanking,
 } from 'helper/createRedisKey/createRedisKey';
 import { RedisClientType } from 'redis';
 // import timezone from 'dayjs/plugin/timezone';
@@ -146,11 +146,13 @@ export class TasksService {
 
     for (const [key, amount] of Object.entries(hashResult)) {
       const data = new CoTiCurEnterUserNums();
-      data.nums = parseInt(amount);
-      const [concertId, ticketId] = key.split('/');
-      data.concertId = parseInt(concertId);
-      data.ticketId = parseInt(ticketId);
-      dataList.push(data);
+      if (key !== 'undefined/undefined') {
+        data.nums = amount ? parseInt(amount) : 0;
+        const [concertId, ticketId] = key.split('/');
+        data.concertId = parseInt(concertId);
+        data.ticketId = parseInt(ticketId);
+        dataList.push(data);
+      }
     }
 
     this.coTiCurEnterUserNums.persistAndFlush(dataList);
