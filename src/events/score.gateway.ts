@@ -39,6 +39,7 @@ export class ScoreGateway {
     [addedScore, updatedScore]: [number, number],
   ) {
     const { ticketId, concertId } = client.data;
+    // TODO Reconnect 이벤트로 다시 접속하기 전에 , score update는 계속 진행중
     // 랭킹 업데이트
     const redisUpdatedScore = await this.redisClient.ZINCRBY(
       rkConTicketScoreRanking(ticketId),
