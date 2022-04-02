@@ -4,51 +4,123 @@ import * as io from 'socket.io-client';
 // in root
 // ts-node bot
 
+const getRandom = (list: any[]) => {
+  return list[Math.floor(Math.random() * list.length)];
+};
+
+export type MySocket = io.Socket & {
+  data: {
+    name: string;
+  };
+};
+
 const BOT_NUM = 3;
 const CONCERT_ID = 1;
 const TICKET_ID = 1;
+const BOT_ID_START = 7;
 const SOCKET_URL = 'http://localhost:3002';
 
-const CHAT_INTERVAL_BASE = 1000 * 20;
-const SCORE_INTERVAL_BASE = 1000 * 0.7;
+const CHAT_INTERVAL_BASE = 1000 * 3;
+const SCORE_INTERVAL_BASE = 1000 * 1;
 
 const aList = new Array(BOT_NUM).fill(0);
-const socketList: io.Socket[] = [];
+const socketList: MySocket[] = [];
 
 let roomId = nanoid();
 
+const USER_NAME_LIST = [
+  '一歌',
+  'K',
+  '花里 みのり',
+  'ツカサ',
+  '咲希',
+  'Amia',
+  '桐谷 遥',
+  'Azusawa',
+  'エム',
+  '穂波',
+  '志歩',
+  'enanan',
+  'yuki',
+  '桃井 愛莉',
+  '日野森 志歩',
+  'siraishi',
+  'shinonome',
+  'AOYAMA',
+  'ネネ',
+  'ルイ',
+];
+
+const CHAT_TEXT_LIST = [
+  '👏👏👏👏👏👏👏',
+  '888888888888888',
+  '大好き',
+  'おおおおおおおオオオオオオオオオオオオオオオオオ',
+  'Y(´▽ `)YY(´▽ `)YY(´▽ `)YY(´▽ `)Y',
+  '☆ﾟ+｡☆｡+ﾟ☆ﾟ+｡☆｡+ﾟ☆☆ﾟ+｡☆｡+ﾟ☆ﾟ+｡☆｡+ﾟ☆☆ﾟ+｡☆｡+ﾟ☆ﾟ+｡☆｡+ﾟ☆☆ﾟ+｡☆｡+ﾟ☆ﾟ+｡☆｡+ﾟ☆☆ﾟ+｡☆｡+',
+  "└( 'Д')┘ｱﾞｱﾞｱﾞｱﾞｱﾞ",
+  'ああああああああああああああああ',
+  'あいしてるぞぉぉおおおおおおおお！！！！！！！！！',
+  '神神神！！',
+  'かわいい(*´ω｀*)',
+  '(　ﾟ∀ﾟ)o彡°ﾊｲ！(　ﾟ∀ﾟ)o彡°ﾊｲ！(　ﾟ∀ﾟ)o彡°ﾊｲ！(　ﾟ∀ﾟ)o彡°ﾊｲ！(　ﾟ∀ﾟ)o彡°ﾊｲ',
+  '大好き❤❤❤❤❤',
+  'やべえ',
+  'チキン肌',
+  '泣く(´；ω；`)ｳｩｩ',
+  '(°∀°")ハイ！(°∀°")ハイ！(°∀°")ハイ！(°∀°")ハイ！(°∀°")ハイ！(°∀°")ハイ！(°∀°")',
+  '☆.。.:*・°☆.。.:*・°☆.。.:*・°☆♬✧.｡.☪✦**.｡:✡*✽✪✩..✦:✧♪✡♪*｡✪✩*⋆ *☪⋆♬*゜⋆*✩',
+  '☆彡☆彡☆彡☆彡☆彡☆彡☆彡☆彡',
+];
+
+const generateChat = () => {
+  const chat = {};
+  chat['text'] = getRandom(CHAT_TEXT_LIST);
+  const random = Math.random();
+  if (random < 0.1) {
+    chat['amount'] = Math.round(random * 1000) * 100;
+  }
+  return chat;
+};
+
+process.stdin.resume();
+
 aList.forEach((_, idx) => {
   console.log('socket num:', idx);
+  const name = USER_NAME_LIST[idx];
+  const dbColumnId = BOT_ID_START + idx;
   const uniqueId = nanoid();
+  // @ts-ignore
   const aSocket = io.io(SOCKET_URL, {
     autoConnect: true,
     transports: ['websocket'],
-  });
+  }) as MySocket;
   let score = 0;
+  aSocket.data = { name };
   aSocket.emit(
     'fe-new-user-request-join',
     uniqueId,
     roomId, // 4명 마다 바뀜
-    { id: idx + 100, uuid: uniqueId, name: uniqueId.slice(0, 6) },
+    { id: dbColumnId, uuid: uniqueId, name },
     CONCERT_ID,
     TICKET_ID,
-    idx + 100, // userTicketId
+    dbColumnId, // userTicketId
   );
 
   socketList.push(aSocket);
 
   setInterval(() => {
     aSocket.emit('fe-send-message', {
-      sender: idx + 100,
-      text: 'abcd' + Math.random(),
+      sender: name,
       timestamp: Date.now(),
+      ...generateChat(),
     });
   }, CHAT_INTERVAL_BASE + Math.floor(Math.random() * 2000));
 
   setInterval(() => {
     const addedScore = Math.floor(Math.random() * 15);
     score += addedScore;
-    console.log('score', uniqueId, score);
+    console.log('score', name, score);
     aSocket.emit('fe-update-score', addedScore, score);
   }, SCORE_INTERVAL_BASE + Math.floor(Math.random() * 500));
 
@@ -59,3 +131,15 @@ aList.forEach((_, idx) => {
 });
 
 console.log(aList);
+
+function exitHandler(code) {
+  console.log('exit', code);
+  socketList.forEach((socket) => {
+    console.log(socket.data.name, ' left');
+    socket.emit('fe-user-left');
+  });
+
+  process.exit(1);
+}
+process.on('SIGINT', exitHandler);
+process.on('uncaughtException', exitHandler);
