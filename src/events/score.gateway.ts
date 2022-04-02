@@ -46,7 +46,7 @@ export class ScoreGateway {
       addedScore,
       client.data.userData.name,
     );
-    console.log('redisUpdatedScore,', redisUpdatedScore);
+    // console.log('redisUpdatedScore,', redisUpdatedScore);
 
     if (redisUpdatedScore !== updatedScore) {
       //  부정 행위 업데이트

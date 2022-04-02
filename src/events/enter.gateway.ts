@@ -83,6 +83,7 @@ export class EnterGateway {
       // 현재 들어갈 수 있는 방이어서 입장
       client.join(roomId);
       client.data['roomId'] = roomId;
+      client.data.isEnterProper = true;
       client
         .to(roomId)
         .emit('be-new-user-come', peerId, roomId, userData, client.id);
@@ -137,5 +138,8 @@ export class EnterGateway {
     this.redisClient.HINCRBY(
       ...createRpConTicketEnterUserNum(concertId, ticketId, -1),
     );
+
+    //  isLeft가 작동하지 않았다면 redis 되장 처리가 이루어 지지 않고 끊기어임.
+    client.data.isLeftProper = true;
   }
 }

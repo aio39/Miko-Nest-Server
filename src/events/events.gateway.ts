@@ -10,6 +10,10 @@ import {
 } from '@nestjs/websockets';
 import { Chats } from 'entities/Chats';
 import { Users } from 'entities/Users';
+import {
+  createRpConTicketEnterUserNum,
+  rkConTicketPublicRoom,
+} from 'helper/createRedisKey/createRedisKey';
 import { RedisClientType } from 'redis';
 import { Server } from 'socket.io';
 import { MySocket } from 'types/MySocket';
@@ -47,26 +51,40 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection {
   handleConnection(client: MySocket, ...args: any[]) {
     this.logger.log(`Client Connected : ${client.id}`);
     client.setMaxListeners(0);
-    // client.leave(client.id); // 자기 자신방 나감
-  }
-
-  // handleDisconnect(client: Socket) {
-  //   this.logger.log(`Client Disconnected : ${client.id}`);
-  //   console.log(client.rooms);
-  // }
-
-  // TODO  left-user vs disconnection
-  @SubscribeMessage('disconnecting')
-  handleDisconnecting(client: MySocket, reason) {
-    //  Socket이 Room에서 제거되기전 Fire
-    this.logger.log(`Client Disconnecting : ${client.id}`);
-    console.log(client.rooms, 'reason', reason);
+    // client.leave(client.id); // 자기 자신방 나감,  // NOTE 이거 하면 왜 메세지 2번씩 중복해서 오지?
   }
 
   @SubscribeMessage('disconnect')
   handleDisconnect(client: MySocket, reason) {
     //  Socket이 Room에서 제거되기전 Fire
     this.logger.log(`Client Disconnect : ${client.id}`);
-    console.log(client.rooms, 'reason', reason);
+    console.log(client.rooms, 'Disconnect reason', reason);
+    console.log('Disconnect', client.data, client.rooms);
+  }
+
+  // TODO  left-user vs disconnection
+  @SubscribeMessage('disconnecting')
+  handleDisconnecting(client: MySocket, reason) {
+    //  Socket이 Room에서 제거되기전 Fire
+    this.logger.log(`Client Disconnecting : ${client.id}`);
+    console.log(client.rooms, 'Disconnecting reason', reason);
+    // client namespace disconnect - 유저가 스스로 socket.disconnect()로 끊음
+    // transport close , 신호 손실이나 창 강제로 닫기로 인해서 끊어짐.
+    console.log('Disconnecting', client.data, client.rooms);
+
+    if (!client.data.isLeftProper && client.data.isEnterProper) {
+      const { peerId, concertId, roomId, ticketId } = client.data;
+      client.to(roomId + '').emit('be-user-left', peerId);
+
+      this.redisClient.ZINCRBY(
+        rkConTicketPublicRoom(ticketId),
+        -1,
+        client.data.roomId + '',
+      );
+
+      this.redisClient.HINCRBY(
+        ...createRpConTicketEnterUserNum(concertId, ticketId, -1),
+      );
+    }
   }
 }

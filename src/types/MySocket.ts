@@ -9,5 +9,7 @@ export type MySocket = Socket & {
     roomId: number;
     userTicketId: number;
     ticketId: number;
+    isLeftProper: boolean;
+    isEnterProper: boolean;
   };
 };
