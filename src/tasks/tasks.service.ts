@@ -44,14 +44,29 @@ export class TasksService {
 
   private readonly logger = new Logger(TasksService.name);
 
+  @Cron('* * * * *', { name: 'everyMinuteJob' })
+  async everyMinuteJob() {
+    console.log('Cron Job - everyMinuteJob', new Date().toISOString());
+    try {
+      this.updateConcertAddedScoreForM();
+      this.updateConTicketAddedChatForM();
+      this.updateCoTiAmountDonePerTimes();
+      this.updateCoTiAmountSuperChatForM();
+      this.updateCoTiCurEnterUserNums();
+    } catch (error) {
+      console.log(error);
+    }
+  }
+
   // N(1)분 동안 추가된 콘서트 스코어 점수를 가져와서 DB에 넣고 0으로 초기화
-  @Cron('* * * * *') // 매 0분 0초 마다
+  // @Cron('0 * * * * *') // 매 0분 0초 마다
   async updateConcertAddedScoreForM() {
+    console.log('Cron Job updateConcertAddedScoreForM');
     const hashResult = await this.redisClient.HGETALL(
       rkConTicketAddedScoreForM(),
     );
     this.redisClient.DEL(rkConTicketAddedScoreForM());
-
+    console.log(hashResult);
     const dataList: ConcertAddedScorePerTimes[] = [];
 
     for (const [key, score] of Object.entries(hashResult)) {
@@ -64,11 +79,12 @@ export class TasksService {
       dataList.push(data);
     }
 
+    console.log(dataList);
     this.concertAddedScorePerTime.persistAndFlush(dataList);
   }
 
   // TODO  1분 동안의 도네이션
-  @Cron('* * * * *') // 매 0분 0초 마다
+  // @Cron('0 * * * * *') // 매 0분 0초 마다
   async updateCoTiAmountDonePerTimes() {
     const hashResult = await this.redisClient.HGETALL(
       rkConTicketAmountDoneForM(),
@@ -90,7 +106,7 @@ export class TasksService {
   }
 
   // TODO 1분 동안의 슈퍼챗
-  @Cron('* * * * *') // 매 0분 0초 마다
+  // @Cron('0 * * * * *') // 매 0분 0초 마다
   async updateCoTiAmountSuperChatForM() {
     const hashResult = await this.redisClient.HGETALL(
       rkConTicketAmountSuChatForM(),
@@ -112,7 +128,7 @@ export class TasksService {
   }
 
   // TODO 1분 동안의 텍스트량
-  @Cron('* * * * *') // 매 0분 0초 마다
+  // @Cron('0 * * * * *') // 매 0분 0초 마다
   async updateConTicketAddedChatForM() {
     const hashResult = await this.redisClient.HGETALL(
       rkConTicketAddedChatForM(),
@@ -134,7 +150,7 @@ export class TasksService {
   }
 
   // TODO 시간별 접속 유저수
-  @Cron('* * * * *') // 매 0분 0초 마다
+  // @Cron('0 * * * * *') // 매 0분 0초 마다
   async updateCoTiCurEnterUserNums() {
     const hashResult = await this.redisClient.HGETALL(
       rkConTicketEnterUserNum(),
