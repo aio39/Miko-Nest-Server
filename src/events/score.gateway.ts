@@ -50,7 +50,7 @@ export class ScoreGateway {
 
     if (redisUpdatedScore !== updatedScore) {
       //  부정 행위 업데이트
-      console.log('부정 행위', redisUpdatedScore, addedScore, updatedScore);
+      // console.log('부정 행위', redisUpdatedScore, addedScore, updatedScore);
       // await this.redisClient.ZINCRBY(
       //   rkConcertScoreRanking(ticketId),
       //   -updatedScore,

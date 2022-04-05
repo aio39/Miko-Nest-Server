@@ -10,6 +10,7 @@ import {
   doneItem,
 } from 'const';
 import { Chats } from 'entities/Chats';
+import { Concerts } from 'entities/Concerts';
 import { Users } from 'entities/Users';
 import { EventsGateway } from 'events/events.gateway';
 import {
@@ -40,6 +41,8 @@ export class ChatGateway {
     private readonly coinHistoriesRepository: EntityRepository<CoinHistories>,
     @InjectRepository(Users)
     private readonly usersRepository: EntityRepository<Users>,
+    @InjectRepository(Concerts)
+    private readonly concertsRepository: EntityRepository<Concerts>,
     private readonly eventsGateway: EventsGateway,
   ) {}
 
@@ -63,8 +66,11 @@ export class ChatGateway {
 
     // SuerChat인 경우
     if (data.amount) {
-      // TODO  유저 스트리머 ID 구해서 coinHistory 업데이트
-      // const streamerPr  = this.usersRepository.findOneOrFail({})
+      const streamerPromise = this.concertsRepository.findOneOrFail(
+        { id: concertId },
+        { populate: ['user'] },
+      );
+
       const viewer = await this.usersRepository.findOneOrFail({
         id: client.data.userData.id,
       });
@@ -92,7 +98,7 @@ export class ChatGateway {
 
       const streamerCoinHistory = new CoinHistories();
 
-      streamerCoinHistory.userId = 1;
+      streamerCoinHistory.userId = (await streamerPromise).id;
       streamerCoinHistory.variation = data.amount;
       streamerCoinHistory.chat = chat;
       streamerCoinHistory.type = chSuperChatSendedIdx;
@@ -125,6 +131,12 @@ export class ChatGateway {
     } = client.data;
     const { itemId, sender, timestamp } = data;
     const { price } = doneItem[itemId];
+
+    const streamerPromise = this.concertsRepository.findOneOrFail(
+      { id: concertId },
+      { populate: ['user'] },
+    );
+
     const viewer = await this.usersRepository.findOneOrFail({
       id: client.data.userData.id,
     });
@@ -150,18 +162,21 @@ export class ChatGateway {
     viewerCoinHistory.userId = viewer.id;
     viewerCoinHistory.variation = -price;
     viewerCoinHistory.type = chDoneItemSendIdx;
+    viewerCoinHistory.concertId = concertId;
     viewerCoinHistory.ticketId = ticketId;
 
     const streamerCoinHistory = new CoinHistories();
 
-    streamerCoinHistory.userId = 1;
+    streamerCoinHistory.userId = (await streamerPromise).id;
     streamerCoinHistory.variation = price;
     streamerCoinHistory.type = chSuperDoneItemSendedIdx;
+    streamerCoinHistory.concertId = concertId;
     streamerCoinHistory.ticketId = ticketId;
 
     this.coinHistoriesRepository.persistAndFlush([
       viewerCoinHistory,
       streamerCoinHistory,
     ]);
+    this.usersRepository.persistAndFlush(viewer);
   }
 }

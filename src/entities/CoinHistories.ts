@@ -20,6 +20,10 @@ export class CoinHistories {
   @Property({ columnType: 'bigint', nullable: true, defaultRaw: `NULL` })
   ticketId?: number;
 
+  @Index({ name: 'coin_histories_concert_id_index' })
+  @Property({ columnType: 'bigint', nullable: true, defaultRaw: `NULL` })
+  concertId?: number;
+
   @Index({ name: 'coin_histories_chat_id_index' })
   @Property({ columnType: 'bigint', nullable: true, defaultRaw: `NULL` })
   chatId?: number;
