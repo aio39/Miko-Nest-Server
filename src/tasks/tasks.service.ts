@@ -1,3 +1,8 @@
+import {
+  ReceiveMessageCommand,
+  ReceiveMessageCommandInput,
+  SQSClient,
+} from '@aws-sdk/client-sqs';
 import { EntityRepository } from '@mikro-orm/core';
 import { InjectRepository } from '@mikro-orm/nestjs';
 import { Inject, Injectable, Logger } from '@nestjs/common';
@@ -20,6 +25,8 @@ import {
   rkConTicketScoreRanking,
 } from 'helper/createRedisKey/createRedisKey';
 import { RedisClientType } from 'redis';
+import { UserTicket } from './../../temp/entity/UserTicket';
+import { rkConTicketPublicRoom } from './../helper/createRedisKey/createRedisKey';
 // import timezone from 'dayjs/plugin/timezone';
 // dayjs.extend(timezone);
 // dayjs.tz.setDefault('Asia/Tokyo');
@@ -39,10 +46,16 @@ export class TasksService {
     private readonly coTiCurEnterUserNums: EntityRepository<CoTiCurEnterUserNums>,
     @InjectRepository(Tickets)
     private readonly ticketRepo: EntityRepository<Tickets>,
+    @InjectRepository(UserTicket)
+    private readonly userTicketRepo: EntityRepository<UserTicket>,
+
     private readonly eventGateway: EventsGateway,
   ) {}
 
   private readonly logger = new Logger(TasksService.name);
+  private readonly sqsClient = new SQSClient({
+    region: process.env.AWS_REGION,
+  });
 
   @Cron('* * * * *', { name: 'everyMinuteJob' })
   async everyMinuteJob() {
@@ -175,7 +188,7 @@ export class TasksService {
   }
 
   // TODO 콘서트 정리 작업
-  // @Cron('5 * * * * *') // 매 0분 5초 마다
+  @Cron('5 * * * * *') // 매 0분 5초 마다
   async cleanUpConcertRedis() {
     // 현재 입장중인 유저가 존재하는 콘서트티켓 리스트
     const hashResult = await this.redisClient.HGETALL(
@@ -186,19 +199,19 @@ export class TasksService {
     const concertIdList: number[] = [];
 
     for (const [key, amount] of Object.entries(hashResult)) {
-      const [concertId, ticketId] = key.split('/').map(parseInt);
-      concertIdList.push(concertId);
-      ticketIdList.push(ticketId);
+      const [concertId, ticketId] = key.split('/').map((v) => parseInt(v));
+      // 종종 undefined => NaN이 나옴
+      if (concertId && ticketId) {
+        concertIdList.push(concertId);
+        ticketIdList.push(ticketId);
+      }
     }
 
     const tickets = await this.ticketRepo.find({ id: { $in: ticketIdList } });
 
     tickets.forEach((ticket) => {
+      // 콘서트 하나마다의  처리
       if (dayjs().isAfter(ticket.concertEndDate)) {
-        //  현재 입장중 유저 초기화
-        this.redisClient.HDEL(rkConTicketEnterUserNum(), [
-          ticket.concertId + '/' + ticket.id,
-        ]);
         // 유저 강퇴 및 소켓 삭제
         this.eventGateway.server.to(ticket.id + '').emit('be-go-out-room');
 
@@ -207,9 +220,52 @@ export class TasksService {
           .zRangeWithScores(rkConTicketScoreRanking(ticket.id), 0, -1, {
             REV: true,
           })
-          .then((result) => {
+          .then(async (rankingResult) => {
+            const objectResult = new Map();
+            rankingResult.forEach(({ score, value }, idx) => {
+              objectResult.set(value, [score, idx]);
+            });
+
+            const userTickets = await this.userTicketRepo.find(
+              {
+                isUsed: true,
+                ticketId: ticket.id + '',
+              },
+              {
+                populate: ['user'],
+              },
+            );
+            userTickets.forEach((userTicket) => {
+              userTicket.pRanking =
+                objectResult.get(userTicket.user.name)[1] + 1;
+            });
+            this.userTicketRepo.persistAndFlush(userTickets);
             //  TODO 랭킹 정보 저장
+          })
+          .then(() => {
+            this.redisClient.DEL(rkConTicketScoreRanking(ticket.id));
           });
+
+        //  현재 입장중 유저 초기화  //  방데이터 , 콘서트 스코어 랭킹, N분 데이터
+        this.redisClient.HDEL(rkConTicketEnterUserNum(), [
+          ticket.concertId + '/' + ticket.id,
+        ]);
+        this.redisClient.HDEL(rkConTicketAddedScoreForM(), [
+          ticket.concertId + '/' + ticket.id,
+        ]);
+        this.redisClient.HDEL(rkConTicketAmountDoneForM(), [
+          ticket.concertId + '/' + ticket.id,
+        ]);
+        this.redisClient.HDEL(rkConTicketAmountSuChatForM(), [
+          ticket.concertId + '/' + ticket.id,
+        ]);
+        this.redisClient.HDEL(rkConTicketAddedChatForM(), [
+          ticket.concertId + '/' + ticket.id,
+        ]);
+        this.redisClient.DEL([
+          rkConTicketPublicRoom(ticket.id),
+          rkConTicketScoreRanking(ticket.id),
+        ]);
       }
     });
   }
@@ -230,5 +286,20 @@ export class TasksService {
           this.eventGateway.server.to(ticketId).emit('be-broadcast-rank', rank);
         });
     });
+  }
+
+  @Interval(10000)
+  async handleRecordingData() {
+    const MAX_BATCH = 10;
+    const params: ReceiveMessageCommandInput = {
+      AttributeNames: ['SentTimestamp'],
+      MaxNumberOfMessages: MAX_BATCH,
+      MessageAttributeNames: ['All'],
+      QueueUrl: process.env.AWS_SQS_RECORDING,
+      VisibilityTimeout: 300,
+      WaitTimeSeconds: 0,
+    };
+
+    await this.sqsClient.send(new ReceiveMessageCommand(params));
   }
 }

@@ -34,6 +34,7 @@ export class RankGateway {
   async handleGetMyScore(client: MySocket) {
     const { userData, ticketId } = client.data;
 
+    // TODO 점수도 같이 얻어와서 보내기
     const myRankIdx = await this.redisClient.zRevRank(
       rkConTicketScoreRanking(ticketId),
       userData.name,

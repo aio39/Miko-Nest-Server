@@ -25,3 +25,6 @@ export const chTicketSoldIdx = 5;
 export const chGoodsSoldIdx = 6;
 export const chSuperChatSendedIdx = 7;
 export const chSuperDoneItemSendedIdx = 8;
+
+export const IVS_RECORD_ARN =
+  'arn:aws:ivs:us-east-1:121323684128:recording-configuration/LqC0slRVX5q1';

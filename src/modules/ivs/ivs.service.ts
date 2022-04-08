@@ -29,8 +29,9 @@ import {
 } from '@aws-sdk/client-ivs';
 import { EntityRepository } from '@mikro-orm/core';
 import { InjectRepository } from '@mikro-orm/nestjs';
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { IVS_RECORD_ARN } from 'const';
 import { Tickets } from 'entities/Tickets';
 import * as fs from 'fs';
 import * as jwt from 'jsonwebtoken';
@@ -73,12 +74,19 @@ export class IvsService {
     });
 
     if (ticket.channelArn) {
-      throw new HttpException('already exists', HttpStatus.CONFLICT);
+      // throw new HttpException('already exists', HttpStatus.CONFLICT);
+      const { result } = await this.deleteChannelCommand({
+        arn: ticket.channelArn,
+      });
+      console.log(result);
     }
 
     const command = new CreateChannelCommand({
       ...commandInput,
       name: ticketId + '',
+      latencyMode: 'LOW',
+      recordingConfigurationArn: IVS_RECORD_ARN,
+      // TODO auth 설정
     });
     const { $metadata, channel, streamKey } = await this.client.send(command);
 
