@@ -11,6 +11,7 @@ import {
   rkConTicketPublicRoom,
   rkConTicketScoreRanking,
 } from 'helper/createRedisKey/createRedisKey';
+import { isAllExists } from 'helper/isAllExists';
 import { RedisClientType } from 'redis';
 import { MySocket } from 'types/MySocket';
 import { CoinHistories } from '../entities/CoinHistories';
@@ -42,27 +43,15 @@ export class EnterGateway {
   @SubscribeMessage('fe-new-user-request-join')
   async handleNewUserRequestJoin(
     client: MySocket,
-    [peerId, roomId, userData, concertId, ticketId, userTicketId],
+    data: [string, string, Users, number, number, number],
   ) {
-    console.log('new user request join', userData);
-    if (
-      !peerId ||
-      !roomId ||
-      !userData ||
-      !concertId ||
-      !ticketId ||
-      !userTicketId
-    ) {
-      console.log('socket의 데이터가 부족합니다.', [
-        peerId,
-        roomId,
-        userData,
-        concertId,
-        ticketId,
-        userTicketId,
-      ]);
+    if (!isAllExists(data)) {
+      console.log('socket의 데이터가 부족합니다.', data);
       return client.emit('be-back-to-start');
     }
+
+    const [peerId, roomId, userData, concertId, ticketId, userTicketId] = data;
+    console.log('new user request join', userData);
 
     client.data['peerId'] = peerId;
     client.data['userData'] = userData;

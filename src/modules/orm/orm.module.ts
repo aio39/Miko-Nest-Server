@@ -8,6 +8,7 @@ import { CoTiAddedChatPerTimes } from 'entities/CoTiAddedChatPerTimes';
 import { CoTiAmountDonePerTimes } from 'entities/CoTiAmountDonePerTimes';
 import { CoTiAmountSuperChatPerTimes } from 'entities/CoTiAmountSuperChatPerTimes';
 import { CoTiCurEnterUserNums } from 'entities/CoTiCurEnterUserNums';
+import { Recordings } from 'entities/Recordings';
 import { Tickets } from 'entities/Tickets';
 import { Users } from 'entities/Users';
 import { UserTicket } from 'entities/UserTicket';
@@ -30,6 +31,7 @@ import { UserTicket } from 'entities/UserTicket';
         CoTiAmountSuperChatPerTimes,
         CoTiCurEnterUserNums,
         Tickets,
+        Recordings,
       ],
     }),
   ],

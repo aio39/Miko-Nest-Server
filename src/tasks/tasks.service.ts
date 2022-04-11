@@ -1,4 +1,6 @@
+import { S3Client } from '@aws-sdk/client-s3';
 import {
+  DeleteMessageCommand,
   ReceiveMessageCommand,
   ReceiveMessageCommandInput,
   SQSClient,
@@ -9,11 +11,13 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Cron, Interval } from '@nestjs/schedule';
 import { RANK_RETURN_NUM } from 'const';
 import * as dayjs from 'dayjs';
+import * as customParseFormat from 'dayjs/plugin/customParseFormat';
 import { ConcertAddedScorePerTimes } from 'entities/ConcertAddedScorePerTimes';
 import { CoTiAddedChatPerTimes } from 'entities/CoTiAddedChatPerTimes';
 import { CoTiAmountDonePerTimes } from 'entities/CoTiAmountDonePerTimes';
 import { CoTiAmountSuperChatPerTimes } from 'entities/CoTiAmountSuperChatPerTimes';
 import { CoTiCurEnterUserNums } from 'entities/CoTiCurEnterUserNums';
+import { Recordings } from 'entities/Recordings';
 import { Tickets } from 'entities/Tickets';
 import { EventsGateway } from 'events/events.gateway';
 import {
@@ -25,8 +29,10 @@ import {
   rkConTicketScoreRanking,
 } from 'helper/createRedisKey/createRedisKey';
 import { RedisClientType } from 'redis';
+import { RecordingStateChangeEvent } from 'types/aws/event/IvsEventBrdigeEvent';
 import { UserTicket } from './../../temp/entity/UserTicket';
 import { rkConTicketPublicRoom } from './../helper/createRedisKey/createRedisKey';
+dayjs.extend(customParseFormat);
 // import timezone from 'dayjs/plugin/timezone';
 // dayjs.extend(timezone);
 // dayjs.tz.setDefault('Asia/Tokyo');
@@ -48,13 +54,28 @@ export class TasksService {
     private readonly ticketRepo: EntityRepository<Tickets>,
     @InjectRepository(UserTicket)
     private readonly userTicketRepo: EntityRepository<UserTicket>,
+    @InjectRepository(Recordings)
+    private readonly recordingRepo: EntityRepository<Recordings>,
 
     private readonly eventGateway: EventsGateway,
   ) {}
 
   private readonly logger = new Logger(TasksService.name);
+
   private readonly sqsClient = new SQSClient({
-    region: process.env.AWS_REGION,
+    region: process.env.AWS_REGION as string,
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS as string,
+      secretAccessKey: process.env.AWS_SECRET as string,
+    },
+  });
+
+  private readonly s3Client = new S3Client({
+    region: process.env.AWS_REGION as string,
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS as string,
+      secretAccessKey: process.env.AWS_SECRET as string,
+    },
   });
 
   @Cron('* * * * *', { name: 'everyMinuteJob' })
@@ -288,18 +309,74 @@ export class TasksService {
     });
   }
 
-  @Interval(10000)
+  @Interval(30000)
   async handleRecordingData() {
-    const MAX_BATCH = 10;
+    const MAX_BATCH = 5;
     const params: ReceiveMessageCommandInput = {
-      AttributeNames: ['SentTimestamp'],
+      // AttributeNames: ['SentTimestamp'],
       MaxNumberOfMessages: MAX_BATCH,
       MessageAttributeNames: ['All'],
       QueueUrl: process.env.AWS_SQS_RECORDING,
-      VisibilityTimeout: 300,
-      WaitTimeSeconds: 0,
+      VisibilityTimeout: 60,
+      WaitTimeSeconds: 10,
     };
 
-    await this.sqsClient.send(new ReceiveMessageCommand(params));
+    const result = await this.sqsClient.send(new ReceiveMessageCommand(params));
+    if (result.$metadata.httpStatusCode === 200) {
+      result.Messages?.forEach((msg) => {
+        const body = JSON.parse(
+          msg.Body as string,
+        ) as RecordingStateChangeEvent<'IVS Recording State Change'>;
+
+        this.ticketRepo
+          .findOneOrFail({ channelArn: body.resources[0] })
+          .then((ticket) => {
+            const record = new Recordings();
+
+            switch (body.detail.recording_status) {
+              case 'Recording Start':
+                const start = dayjs(
+                  (
+                    body.detail.recording_s3_key_prefix.match(
+                      /(\d+\/\d+\/\d+\/\d+\/\d+)/g,
+                    ) as RegExpMatchArray
+                  )[0],
+                  'YYYY/M/D/H/m',
+                ).format('YYYY-MM-DD HH:mm:ss');
+                record.prefix = body.detail.recording_s3_key_prefix;
+                record.ticket = ticket;
+                record.start = start;
+                record.streamId = body.detail.stream_id;
+                this.recordingRepo.persistAndFlush(record);
+                break;
+              case 'Recording End':
+                this.recordingRepo
+                  .findOneOrFail({ streamId: body.detail.stream_id })
+                  .then((record) => {
+                    const end = dayjs(body.time);
+                    record.end = end.format('YYYY-MM-DD HH:mm:ss');
+                    record.ticket = ticket;
+                    record.streamId = body.detail.stream_id;
+                    this.recordingRepo.persistAndFlush(record);
+                  });
+                break;
+              case 'Recording Start Failure':
+              case 'Recording End Failure':
+              default:
+                break;
+            }
+
+            this.sqsClient.send(
+              new DeleteMessageCommand({
+                QueueUrl: process.env.AWS_SQS_RECORDING,
+                ReceiptHandle: msg.ReceiptHandle,
+              }),
+            );
+          })
+          .catch((err) => {
+            console.error('ticket not found', err);
+          });
+      });
+    }
   }
 }

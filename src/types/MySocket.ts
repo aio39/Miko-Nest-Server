@@ -6,7 +6,7 @@ export type MySocket = Socket & {
     peerId: string;
     userData: Users;
     concertId: number;
-    roomId: number;
+    roomId: string;
     userTicketId: number;
     ticketId: number;
     isLeftProper: boolean;
