@@ -1,8 +1,8 @@
 {
-  "name": "mikro-orm-nest-ts-example",
+  "name": "miko-nest-server",
   "version": "0.0.1",
-  "description": "Example integration of MikroORM into Nest (in typescript)",
-  "author": "Martin Adamek",
+  "description": "miko-nest-server",
+  "author": "aio39",
   "license": "MIT",
   "scripts": {
     "prebuild": "rimraf dist",
@@ -13,7 +13,7 @@
     "temp2": "ts-node-transpile-only -r tsconfig-paths/register temp.ts",
     "start:dev": "nodemon",
     "start:debug": "nodemon --config nodemon-debug.json",
-    "start:prod": "node dist/main.js",
+    "start:prod": "cross-env NODE_ENV=prod node dist/main.js",
     "start:hmr": "node dist/server",
     "lint": "tslint -p tsconfig.json -c tslint.json",
     "test": "jest --runInBand",
