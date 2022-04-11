@@ -7,10 +7,11 @@ phases:
   pre_build:
     commands:
       - echo pre-build...
+      - npm ci --include=dev
+      -
   build:
     commands:
       - echo Build started on `date`
-      - npm ci
       - npm run build
 cache:
   paths:
