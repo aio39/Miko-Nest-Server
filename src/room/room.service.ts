@@ -1,14 +1,19 @@
+import { EntityRepository } from '@mikro-orm/core';
+import { InjectRepository } from '@mikro-orm/nestjs';
 import { Inject, Injectable } from '@nestjs/common';
 import { EventsGateway } from 'events/events.gateway';
 import { rkConTicketPublicRoom } from 'helper/createRedisKey/createRedisKey';
 import { nanoid } from 'nanoid';
 import { RedisClientType } from 'redis';
+import { UserTicket } from './../../temp/entity/UserTicket';
 
 @Injectable()
 export class RoomService {
   constructor(
     private readonly eventGateway: EventsGateway,
     @Inject('REDIS_CONNECTION') private redisClient: RedisClientType<any, any>,
+    @InjectRepository(UserTicket)
+    private readonly userTicketsRepository: EntityRepository<UserTicket>,
   ) {}
 
   async enterRandomRoom(ticketId: number) {
@@ -37,5 +42,19 @@ export class RoomService {
       this.redisClient.ZINCRBY(redisKey, 1, result[0].value);
       return result[0].value;
     }
+  }
+
+  async checkTicket(userTicketId: number) {
+    const userTicket = await this.userTicketsRepository.findOneOrFail({
+      id: userTicketId + '',
+    });
+    console.log(userTicket);
+    if (!userTicket.isUsed) {
+      userTicket.isUsed = true;
+      this.userTicketsRepository.persistAndFlush(userTicket);
+      console.log('updata');
+    }
+
+    return { isOk: true };
   }
 }

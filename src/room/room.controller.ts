@@ -9,4 +9,9 @@ export class RoomController {
   enterRandomRoom(@Body() { concertId }) {
     return this.roomService.enterRandomRoom(concertId);
   }
+
+  @Post('/check-ticket')
+  checkTicket(@Body() { userTicketId }) {
+    return this.roomService.checkTicket(userTicketId);
+  }
 }

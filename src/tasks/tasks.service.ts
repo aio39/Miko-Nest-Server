@@ -353,7 +353,12 @@ export class TasksService {
                 this.recordingRepo
                   .findOneOrFail({ streamId: body.detail.stream_id })
                   .then((record) => {
-                    const end = dayjs(body.time);
+                    // const end = dayjs(body.time);
+                    const end = dayjs(record.start).add(
+                      body.detail.recording_duration_ms,
+                      'ms',
+                    );
+
                     record.end = end.format('YYYY-MM-DD HH:mm:ss');
                     record.ticket = ticket;
                     record.streamId = body.detail.stream_id;

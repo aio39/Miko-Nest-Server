@@ -2,6 +2,7 @@ import { MiddlewareConsumer, Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { LoggerMiddleware } from 'middleware/morgan.middleware';
+import { TicketModule } from 'modules/ticket/ticket.module';
 import { redisProviders } from 'redis.provider';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -36,6 +37,7 @@ import { TasksModule } from './tasks/tasks.module';
     ScheduleModule.forRoot(),
     TasksModule,
     RankModule,
+    TicketModule,
   ],
   controllers: [AppController, IvsController],
   providers: [AppService, IvsService, ...redisProviders],
