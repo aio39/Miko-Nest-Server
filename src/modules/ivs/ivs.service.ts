@@ -33,12 +33,11 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IVS_RECORD_ARN } from 'const';
 import { Tickets } from 'entities/Tickets';
-import * as fs from 'fs';
 import * as jwt from 'jsonwebtoken';
 @Injectable()
 export class IvsService {
   private client: IvsClient;
-  private privateKey: Buffer;
+  private privateKey: string;
   constructor(
     private readonly config: ConfigService,
     @InjectRepository(Tickets)
@@ -51,7 +50,7 @@ export class IvsService {
       },
       region: this.config.get('AWS_REGION'),
     });
-    this.privateKey = fs.readFileSync('private-key.pem');
+    this.privateKey = process.env.JWT_PEM as string;
   }
 
   async getChannelList(input: ListChannelsCommandInput) {

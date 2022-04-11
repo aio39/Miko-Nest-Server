@@ -11,6 +11,8 @@ import {
 import * as dayjs from 'dayjs';
 import * as customParseFormat from 'dayjs/plugin/customParseFormat';
 import * as dotenv from 'dotenv';
+// test4();
+import * as fs from 'fs';
 dayjs.extend(customParseFormat);
 
 // import { dirname } from 'path';
@@ -105,7 +107,10 @@ const test4 = () => {
   }
 };
 
-test4();
+const test5 = () => {
+  console.log(fs.readFileSync('private-key.pem').toString('base64'));
+};
+test5();
 
 // ivs/v1/123456789012/AsXego4U6tnj/2020/6/23/20/12/j8Z9O91ndcVs/
 //    events
