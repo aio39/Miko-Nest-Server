@@ -19,6 +19,7 @@ import { CoTiAmountSuperChatPerTimes } from 'entities/CoTiAmountSuperChatPerTime
 import { CoTiCurEnterUserNums } from 'entities/CoTiCurEnterUserNums';
 import { Recordings } from 'entities/Recordings';
 import { Tickets } from 'entities/Tickets';
+import { UserTicket } from 'entities/UserTicket';
 import { EventsGateway } from 'events/events.gateway';
 import {
   rkConTicketAddedChatForM,
@@ -30,7 +31,6 @@ import {
 } from 'helper/createRedisKey/createRedisKey';
 import { RedisClientType } from 'redis';
 import { RecordingStateChangeEvent } from 'types/aws/event/IvsEventBrdigeEvent';
-import { UserTicket } from './../../temp/entity/UserTicket';
 import { rkConTicketPublicRoom } from './../helper/createRedisKey/createRedisKey';
 dayjs.extend(customParseFormat);
 // import timezone from 'dayjs/plugin/timezone';
@@ -250,7 +250,7 @@ export class TasksService {
             const userTickets = await this.userTicketRepo.find(
               {
                 isUsed: true,
-                ticketId: ticket.id + '',
+                ticketId: ticket.id,
               },
               {
                 populate: ['user'],

@@ -1,11 +1,11 @@
 import { EntityRepository } from '@mikro-orm/core';
 import { InjectRepository } from '@mikro-orm/nestjs';
 import { Inject, Injectable } from '@nestjs/common';
+import { UserTicket } from 'entities/UserTicket';
 import { EventsGateway } from 'events/events.gateway';
 import { rkConTicketPublicRoom } from 'helper/createRedisKey/createRedisKey';
 import { nanoid } from 'nanoid';
 import { RedisClientType } from 'redis';
-import { UserTicket } from './../../temp/entity/UserTicket';
 
 @Injectable()
 export class RoomService {
@@ -46,7 +46,7 @@ export class RoomService {
 
   async checkTicket(userTicketId: number) {
     const userTicket = await this.userTicketsRepository.findOneOrFail({
-      id: userTicketId + '',
+      id: userTicketId,
     });
     console.log(userTicket);
     if (!userTicket.isUsed) {
