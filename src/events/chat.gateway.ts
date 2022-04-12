@@ -26,7 +26,7 @@ import { CoinHistories } from '../entities/CoinHistories';
 import { EventsService } from './events.service';
 
 @Injectable()
-@WebSocketGateway(3002, {
+@WebSocketGateway({
   transports: ['websocket'],
   namespace: '/',
   cors: { origin: '*' },
