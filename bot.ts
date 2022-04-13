@@ -93,7 +93,7 @@ aList.forEach((_, idx) => {
   // @ts-ignore
   const aSocket = io.io(SOCKET_URL, {
     autoConnect: true,
-    transports: ['websocket'],
+    transports: ['polling', 'websocket'],
   }) as MySocket;
   let score = 0;
   aSocket.data = { name };

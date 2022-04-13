@@ -19,7 +19,7 @@ import { EventsService } from './events.service';
 
 @Injectable()
 @WebSocketGateway({
-  transports: ['websocket'],
+  transports: ['polling', 'websocket'],
   namespace: '/',
   cors: { origin: '*' },
 })
