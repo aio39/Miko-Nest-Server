@@ -3,7 +3,14 @@ import { DoneItem } from 'types/share/DoneItem';
 export const MAX_PER_ROOM = 5;
 export const RANK_RETURN_NUM = 4;
 
-export const doneItem: DoneItem[] = [{ name: 'ハート', price: 5000, id: 0 }];
+export const doneItem: DoneItem[] = [
+  { name: 'ハート', price: 5000, id: 0 },
+  { name: 'コンペート', price: 6000, id: 1 },
+  { name: 'スター', price: 2500, id: 2 },
+  { name: 'ギフト', price: 100000, id: 3 },
+  { name: '日々', price: 75000, id: 4 },
+  { name: 'キラキラ', price: 4000, id: 5 },
+];
 
 export const chType = [
   'チャージ',
