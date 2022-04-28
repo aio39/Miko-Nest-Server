@@ -28,8 +28,8 @@ export class CoinHistories {
   @Property({ columnType: 'bigint', nullable: true, defaultRaw: `NULL` })
   chatId?: number;
 
-  @OneToOne({ entity: () => Chats, columnType: 'bigint' })
-  chat!: Chats;
+  @OneToOne({ entity: () => Chats, columnType: 'bigint', nullable: true })
+  chat?: Chats;
 
   @Property({ columnType: 'tinyint(4)', default: 0 })
   type: number = 0;
