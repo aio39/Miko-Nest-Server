@@ -304,7 +304,13 @@ export class TasksService {
           { REV: true },
         )
         .then((rank) => {
-          this.eventGateway.server.to(ticketId).emit('be-broadcast-rank', rank);
+          const nameOnlyRank = rank.map(({ score, value }) => ({
+            value: value.split('/')[1],
+            score,
+          }));
+          this.eventGateway.server
+            .to(ticketId)
+            .emit('be-broadcast-rank', nameOnlyRank);
         });
     });
   }

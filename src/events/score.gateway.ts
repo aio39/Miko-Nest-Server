@@ -12,6 +12,7 @@ import {
 import { RedisClientType } from 'redis';
 import { MySocket } from 'types/MySocket';
 import { CoinHistories } from '../entities/CoinHistories';
+import { rkConTicketScoreRankingMember } from './../helper/createRedisKey/createRedisKey';
 import { EventsService } from './events.service';
 
 @Injectable()
@@ -38,13 +39,17 @@ export class ScoreGateway {
     client: MySocket,
     [addedScore, updatedScore]: [number, number],
   ) {
-    const { ticketId, concertId } = client.data;
+    const {
+      ticketId,
+      concertId,
+      userData: { id: userId, name },
+    } = client.data;
     // TODO Reconnect 이벤트로 다시 접속하기 전에 , score update는 계속 진행중
     // 랭킹 업데이트
     const redisUpdatedScore = await this.redisClient.ZINCRBY(
       rkConTicketScoreRanking(ticketId),
       addedScore,
-      client.data.userData.name,
+      rkConTicketScoreRankingMember(userId, name),
     );
     // console.log('redisUpdatedScore,', redisUpdatedScore);
 

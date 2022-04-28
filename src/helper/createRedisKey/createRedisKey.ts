@@ -10,6 +10,11 @@ export const rkConTicketPublicRoom = (ticketId: number) =>
 export const rkConTicketScoreRanking = (ticketId: number) =>
   `ScoreRanking-${ticketId}`;
 
+export const rkConTicketScoreRankingMember = (
+  userId: number,
+  userName: string,
+) => `${userId}/${userName}`;
+
 // 콘서트(티켓)마다 N분 마다 추가된 점수
 export const rkConTicketAddedScoreForM = () => `TiCoAddedScoreForM`;
 export const createRpConTicketAddedScoreForM = (

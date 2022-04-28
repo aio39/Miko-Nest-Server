@@ -10,6 +10,7 @@ import {
   createRpConTicketEnterUserNum,
   rkConTicketPublicRoom,
   rkConTicketScoreRanking,
+  rkConTicketScoreRankingMember,
 } from 'helper/createRedisKey/createRedisKey';
 import { isAllExists } from 'helper/isAllExists';
 import { RedisClientType } from 'redis';
@@ -85,7 +86,10 @@ export class EnterGateway {
       const userScore = await this.redisClient.ZINCRBY(
         rkConTicketScoreRanking(ticketId),
         0,
-        client.data.userData.name,
+        rkConTicketScoreRankingMember(
+          client.data.userData.id,
+          client.data.userData.name,
+        ),
       );
       console.log('기존 랭킹 점수', userScore);
       if (userScore) client.emit('be-send-user-score', userScore);

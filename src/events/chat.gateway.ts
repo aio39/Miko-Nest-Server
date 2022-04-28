@@ -66,6 +66,8 @@ export class ChatGateway {
 
     // SuerChat인 경우
     if (data.amount) {
+      data.user = client.data.userData;
+
       const streamerPromise = this.concertsRepository.findOneOrFail(
         { id: concertId },
         { populate: ['user'] },
