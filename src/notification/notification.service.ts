@@ -7,6 +7,9 @@ import { EventsGateway } from 'events/events.gateway';
 import * as dayjs from 'dayjs';
 import { VapidServerKey } from 'const';
 
+const Concert30MinTime = 30;
+const ConcertStartedTime = 0;
+
 @Injectable()
 export class NotificationService {
   constructor(
@@ -14,73 +17,77 @@ export class NotificationService {
     @Inject('REDIS_CONNECTION') private redisClient: RedisClientType<any, any>,
   ) { }
 
-  async register(req, res) {
+  async register(req) {
         let today = dayjs();
         let startDate = dayjs(req.body.startDate);
-        let result = Math.ceil(startDate.diff(today,"minute", true));
-        console.log('today', today);
-        console.log('startDate', startDate);
-        console.log('result', result);
+        let result = Math.ceil(startDate.diff(today, "minute", true));
+
         const concertId = req.body.concertData.id;
         const subscription = JSON.stringify(req.body.Subscription);
 
-        // this.redisClient.lPush(concertId, sbscription);
+        const concertTitle = req.body.concertData.title;
+        const concertImage = 'https://img.mikopj.live/' + req.body.concertData.coverImage;
+        const concertData = JSON.stringify({"title" : concertTitle, "coverImage" : concertImage});
+
         this.redisClient.zAdd('notification', {value: concertId, score: result});
-        this.redisClient.sAdd('notify-'+concertId, subscription);
+        this.redisClient.hSet('notify-'+concertId, subscription, concertData);
       }
     
-    async sendNotify(sendMembers :PushSubscription[]){
-      console.log('sendNotify-req', sendMembers, sendMembers.length, sendMembers[0], sendMembers);
-      
+    async sendNotify(sendMembers :PushSubscription[], concertData, concertStartTime){
         const options = {
             TTL: 24 * 60 * 60,
             vapidDetails: {
-              subject: 'http://localhost:3000', // 서버 주소
+              subject: 'http://localhost:3000', // 'https://view.mikopj.live/'
               publicKey: VapidServerKey,
               privateKey: process.env.VAPID_PRIVATE_KEY,
             },
         }
         const payload = JSON.stringify({
-            title: 'Miko-Concert',
-            body: '콘서트 시작 60분 전입니다.',
-            icon: 'http://localhost:3000/icon.png',
+            title: concertData.title,
+            body: concertStartTime ? `콘서트 시작 ${concertStartTime}분 전입니다.` : '콘서트가 시작되었습니다!',
+            icon: concertData.coverImage,
             tag: 'default tag',
           });
         
-          if(sendMembers.length == 1){
-            webPush.sendNotification(sendMembers[0], payload, options).catch( error => {
-              console.log(error);
-          }) ;
-          }else{
-          try {
-            await Promise.all(sendMembers.map((t) => webPush.sendNotification(t, payload, options)));
-          } catch (e) {
-            console.error(e);
-          }
-        }
-         //sendMembers.splice(0, sendMembers.length);
+        sendMembers.length == 1 ? webPush.sendNotification(sendMembers[0], payload, options) : 
+                                  await Promise.all(sendMembers.map((t) => webPush.sendNotification(t, payload, options)));
     }
 
     @Cron('45 * * * * *')
     async handleCron() {
       const members = await this.redisClient.zRange('notification', 0,-1);
-      if(members) {
-        this.redisClient.zIncrBy('notification', -1, members.toString());
-        const timeout = await this.redisClient.zRangeByScore('notification', 30, 30);
-        if(timeout){
-          timeout.map(async(data) => {
+      if(members.length) {
+        members.map((member) => {
+          this.redisClient.zIncrBy('notification', -1, member);
+        });
+        const timeout30Min = await this.redisClient.zRangeByScore('notification', Concert30MinTime, Concert30MinTime);
+
+        if(timeout30Min){
+          timeout30Min.map(async(data) => {
           const tokenList: PushSubscription[] = [];
-          const sendMembers = await this.redisClient.sMembers('notify-' + data);
-          for(let i = 0; i < sendMembers.length; i++){
-            tokenList.push(JSON.parse(sendMembers[i]));
+          const sendMembersKey = await this.redisClient.hKeys('notify-' + data);
+          const sendMembersValue = await this.redisClient.hGet('notify-' + data, sendMembersKey[0]);
+          for(let i = 0; i < sendMembersKey.length; i++){
+            tokenList.push(JSON.parse(sendMembersKey[i]));
           }
-          this.sendNotify(tokenList);
-          //this.redisClient.del('notify-' + data);
-          //this.redisClient.zRem('notification', data);
+          this.sendNotify(tokenList, JSON.parse(sendMembersValue!), Concert30MinTime);
         })
       }
+
+      const timeout = await this.redisClient.zRangeByScore('notification', ConcertStartedTime, ConcertStartedTime);
+      if(timeout){
+        timeout.map(async(data) => {
+        const tokenList: PushSubscription[] = [];
+        const sendMembersKey = await this.redisClient.hKeys('notify-' + data);
+        const sendMembersValue = await this.redisClient.hGet('notify-' + data, sendMembersKey[0]);
+        for(let i = 0; i < sendMembersKey.length; i++){
+          tokenList.push(JSON.parse(sendMembersKey[i]));
+          this.redisClient.hDel('notify-' + data, sendMembersKey[i]);
+        }
+        this.sendNotify(tokenList, JSON.parse(sendMembersValue!), ConcertStartedTime);
+        this.redisClient.zRem('notification', data);
+      })
+      }
     }
-      
-      //const request = { title: 'Miko-Concert', body: '곧 시작합니다.', icon: 'http://cdn.sstatic.net/stackexchange/img/logos/so/so-icon.png', tag: 'hello' };
     }
 }
