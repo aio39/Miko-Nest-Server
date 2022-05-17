@@ -15,6 +15,8 @@ import { OrmModule } from './modules/orm/orm.module';
 import { RankModule } from './rank/rank.module';
 import { RoomModule } from './room/room.module';
 import { TasksModule } from './tasks/tasks.module';
+import { NotificationController } from './notification/notification.controller';
+import { NotificationModule } from './notification/notification.module';
 @Module({
   imports: [
     OrmModule,
@@ -38,6 +40,7 @@ import { TasksModule } from './tasks/tasks.module';
     TasksModule,
     RankModule,
     TicketModule,
+    NotificationModule,
   ],
   controllers: [AppController, IvsController],
   providers: [AppService, IvsService, ...redisProviders],

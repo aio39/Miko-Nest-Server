@@ -35,3 +35,7 @@ export const chSuperDoneItemSendedIdx = 8;
 
 export const IVS_RECORD_ARN =
   'arn:aws:ivs:us-east-1:121323684128:recording-configuration/LqC0slRVX5q1';
+
+//web-push key
+export const VapidServerKey = 'BNAgp0hyZG175VVckUdf-YGtg-dTmJjpaaunHi83G5LGWdwClOhbv6JMgsu9d-yAL2es-Y7V_YX060EUCXmsnoQ';
+export const VapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
