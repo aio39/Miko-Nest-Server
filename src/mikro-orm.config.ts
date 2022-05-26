@@ -4,10 +4,11 @@ import { Logger } from '@nestjs/common';
 // import { Author, BaseEntity, Book, BookTag, Publisher } from './entities';
 
 const logger = new Logger('MikroORM');
+
 const config: Options = {
   // entities: [Author, Book, BookTag, Publisher, BaseEntity],
   entities: ['./dist/entities'],
-  entitiesTs: ['./src/entities'],
+  entitiesTs: ['./src/entities'], // './src/app/**/entities' 형식도 사용 가능
   host: process.env.DB_HOST,
   type: 'mysql',
   user: process.env.DB_USER,

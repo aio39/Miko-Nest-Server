@@ -67,7 +67,6 @@ export class ChatGateway {
     // SuerChat인 경우
     if (data.amount) {
       data.user = client.data.userData;
-
       const streamerPromise = this.concertsRepository.findOneOrFail(
         { id: concertId },
         { populate: ['user'] },
@@ -132,9 +131,12 @@ export class ChatGateway {
       userData: { id: userId },
     } = client.data;
     const { itemId, sender, timestamp } = data;
+    if (!doneItem[itemId]) {
+      throw Error('잘못된 아이템 입력');
+    }
     const { price } = doneItem[itemId];
 
-    const streamerPromise = this.concertsRepository.findOneOrFail(
+    const concert = await this.concertsRepository.findOneOrFail(
       { id: concertId },
       { populate: ['user'] },
     );
@@ -150,10 +152,12 @@ export class ChatGateway {
       return client.emit('be-error');
     }
 
+    viewer.coin -= price;
+    concert.user.coin += price;
+    this.usersRepository.persistAndFlush([viewer, concert.user]);
+
     client.emit('be-broadcast-done-item', data); // 자기 자신에게
     client.to(client.data.ticketId + '').emit('be-broadcast-done-item', data);
-
-    viewer.coin -= price;
 
     this.redisClient.HINCRBY(
       ...createRpConTicketAmountDoneForM(concertId, ticketId, price),
@@ -169,16 +173,15 @@ export class ChatGateway {
 
     const streamerCoinHistory = new CoinHistories();
 
-    streamerCoinHistory.userId = (await streamerPromise).id;
+    streamerCoinHistory.userId = concert.user.id;
     streamerCoinHistory.variation = price;
     streamerCoinHistory.type = chSuperDoneItemSendedIdx;
     streamerCoinHistory.concertId = concertId;
     streamerCoinHistory.ticketId = ticketId;
 
-    this.coinHistoriesRepository.persistAndFlush([
+    this.coinHistoriesRepository.removeAndFlush([
       viewerCoinHistory,
       streamerCoinHistory,
     ]);
-    this.usersRepository.persistAndFlush(viewer);
   }
 }

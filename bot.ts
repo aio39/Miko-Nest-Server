@@ -15,16 +15,16 @@ export type MySocket = io.Socket & {
 };
 
 // 배포 환경에서는 bot 수가 증가하면 끊기네
-const BOT_NUM = 20;
+const BOT_NUM = 5;
 const CONCERT_ID = 1;
 const TICKET_ID = 1;
 const BOT_ID_START = 7;
-const SOCKET_URL = 'http://localhost:3001';
-// const SOCKET_URL = 'https://nest.mikopj.live';
+// const SOCKET_URL = 'http://localhost:3001';
+const SOCKET_URL = 'https://nest.mikopj.live';
 // 'miko-nest-env-2.eba-wws3vk6p.us-east-1.elasticbeanstalk.com';
 
-const CHAT_INTERVAL_BASE = 1000 * 2;
-const DONE_INTERVAL_BASE = 1000 * 0.5;
+const CHAT_INTERVAL_BASE = 2000 * 1;
+const DONE_INTERVAL_BASE = 15000 * 1;
 const SCORE_INTERVAL_BASE = 1000 * 1;
 
 const aList = new Array(BOT_NUM).fill(0);
@@ -127,9 +127,9 @@ aList.forEach((_, idx) => {
       sender: name,
       timestamp: Date.now(),
       ...generateChat(),
-      itemId: Math.round(Math.random() * 6),
+      itemId: Math.round(Math.random() * 5),
     });
-  }, CHAT_INTERVAL_BASE + Math.floor(Math.random() * 2000));
+  }, DONE_INTERVAL_BASE + Math.floor(Math.random() * 2000));
 
   setInterval(() => {
     aSocket.emit('fe-send-message', {
@@ -137,7 +137,7 @@ aList.forEach((_, idx) => {
       timestamp: Date.now(),
       ...generateChat(),
     });
-  }, DONE_INTERVAL_BASE + Math.floor(Math.random() * 2000));
+  }, CHAT_INTERVAL_BASE + Math.floor(Math.random() * 2000));
 
   setInterval(() => {
     const addedScore = Math.floor(Math.random() * 15);

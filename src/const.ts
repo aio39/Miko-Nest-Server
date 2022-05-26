@@ -10,6 +10,7 @@ export const doneItem: DoneItem[] = [
   { name: 'ギフト', price: 100000, id: 3 },
   { name: '日々', price: 75000, id: 4 },
   { name: 'キラキラ', price: 4000, id: 5 },
+  { name: 'キラキラ', price: 4000, id: 6 },
 ];
 
 export const chType = [
@@ -37,5 +38,6 @@ export const IVS_RECORD_ARN =
   'arn:aws:ivs:us-east-1:121323684128:recording-configuration/LqC0slRVX5q1';
 
 //web-push key
-export const VapidServerKey = 'BNAgp0hyZG175VVckUdf-YGtg-dTmJjpaaunHi83G5LGWdwClOhbv6JMgsu9d-yAL2es-Y7V_YX060EUCXmsnoQ';
+export const VapidServerKey =
+  'BNAgp0hyZG175VVckUdf-YGtg-dTmJjpaaunHi83G5LGWdwClOhbv6JMgsu9d-yAL2es-Y7V_YX060EUCXmsnoQ';
 export const VapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
